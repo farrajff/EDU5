@@ -33,7 +33,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { storageService } from '../lib/storageService';
 import { THEME_OPTIONS } from '../lib/themeService';
-import { logoutGoogle } from '../lib/firebaseAuth';
 
 export function SettingsPage() {
   const { state, updateState, syncData, syncInProgress, isConnected, reconnectAndLoad } = useApp();
@@ -387,67 +386,6 @@ export function SettingsPage() {
         <h2 className="text-2xl font-black text-slate-800">إدارة النظام والبيانات</h2>
         <p className="text-sm font-semibold text-slate-450 mt-1">تكوين المزامنة السحابية وقاعدة البيانات وتصدير أو استيراد النسخ الاحتياطية</p>
       </header>
-
-      {/* Google User Profile Card */}
-      {(() => {
-        let googleUser: any = null;
-        try {
-          const raw = sessionStorage.getItem('authUser');
-          if (raw) googleUser = JSON.parse(raw);
-        } catch {
-          googleUser = null;
-        }
-
-        const handleGoogleLogout = async () => {
-          try {
-            await logoutGoogle();
-          } catch (e) {
-            console.error(e);
-          }
-          window.location.reload();
-        };
-
-        return (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5 w-full sm:w-auto">
-              {googleUser?.photoURL ? (
-                <img 
-                  src={googleUser.photoURL} 
-                  alt={googleUser.displayName || 'الحساب'} 
-                  className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-500 shadow-sm shrink-0" 
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white font-black flex items-center justify-center text-lg shrink-0 shadow-sm">
-                  {googleUser?.displayName ? googleUser.displayName[0] : <User size={20} />}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-black text-slate-800 dark:text-white truncate">
-                    {googleUser?.displayName || 'المعلم'}
-                  </h3>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
-                    <CheckCircle2 size={12} />
-                    <span>حساب Google متصل</span>
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate dir-ltr text-right mt-0.5">
-                  {googleUser?.email || 'تم تسجيل الدخول بحساب Google'}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleLogout}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 text-red-650 dark:text-red-400 font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-            >
-              <LogOut size={14} />
-              <span>تسجيل الخروج من حساب Google</span>
-            </button>
-          </div>
-        );
-      })()}
 
       {/* Bento Grid Layout */}
       <div className="grid grid-cols-12 gap-6">

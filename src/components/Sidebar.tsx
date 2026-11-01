@@ -201,76 +201,51 @@ export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse,
           {!isCollapsed && <span className="text-sm font-medium">الإعدادات</span>}
         </button>
         
-        {(() => {
-          let googleUser: any = null;
-          try {
-            const raw = sessionStorage.getItem('authUser');
-            if (raw) googleUser = JSON.parse(raw);
-          } catch {
-            googleUser = null;
-          }
-
-          const userName = googleUser?.displayName || 'المعلم';
-          const userEmail = googleUser?.email || 'حساب Google';
-          const userPhoto = googleUser?.photoURL;
-
-          return (
-            <div 
-              className={`rounded-xl p-3 flex items-center gap-3 border transition-all ${isCollapsed ? 'p-1.5 rounded-full' : 'w-full'} relative`}
-              style={{
-                backgroundColor: 'var(--theme-sidebar-card, #111833)',
-                borderColor: 'var(--theme-sidebar-border, #1c264a)'
-              }}
-            >
-              {userPhoto ? (
-                <img 
-                  src={userPhoto} 
-                  alt={userName}
-                  className={`rounded-full object-cover shrink-0 border border-indigo-400 ${isCollapsed ? 'w-8 h-8' : 'w-9 h-9'}`}
-                />
-              ) : (
-                <div 
-                  className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold shrink-0 border ${isCollapsed ? 'w-8 h-8' : ''}`}
-                  style={{
-                    backgroundColor: 'var(--theme-primary, #4f46e5)',
-                    borderColor: 'var(--theme-primary-hover, #4338ca)',
-                    color: '#ffffff'
-                  }}
-                >
-                  <span>{userName[0] || 'م'}</span>
-                </div>
-              )}
-
-              {!isCollapsed && (
-                <div className="min-w-0 flex-1 flex items-center justify-between">
-                  <div className="min-w-0 pr-1">
-                    <p className="text-xs font-semibold text-slate-200 truncate">{userName}</p>
-                    <p className="text-[10px] text-slate-400 font-medium truncate dir-ltr text-right">{userEmail}</p>
-                  </div>
-                  {onLogout && (
-                    <button
-                      onClick={onLogout}
-                      className="p-1.5 text-red-400 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg transition-all duration-150 flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer"
-                      title="تسجيل الخروج من حساب Google"
-                    >
-                      <LogOut size={13} />
-                      <span>خروج</span>
-                    </button>
-                  )}
-                </div>
-              )}
-              {isCollapsed && onLogout && (
+        <div 
+          className={`rounded-xl p-3 flex items-center gap-3 border transition-all ${isCollapsed ? 'p-1.5 rounded-full' : 'w-full'} relative`}
+          style={{
+            backgroundColor: 'var(--theme-sidebar-card, #111833)',
+            borderColor: 'var(--theme-sidebar-border, #1c264a)'
+          }}
+        >
+          <div 
+            className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold shrink-0 border ${isCollapsed ? 'w-8 h-8' : ''}`}
+            style={{
+              backgroundColor: 'var(--theme-primary, #4f46e5)',
+              borderColor: 'var(--theme-primary-hover, #4338ca)',
+              color: '#ffffff'
+            }}
+          >
+            <span>م</span>
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1 flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-200 truncate">المعلم</p>
+                <p className="text-[11px] text-slate-400 font-bold tracking-wider uppercase">معلم المادة</p>
+              </div>
+              {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="absolute -bottom-1 -left-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all border border-slate-800 z-10 scale-90 cursor-pointer"
-                  title="تسجيل الخروج من حساب Google"
+                  className="p-1.5 text-red-500 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg transition-all duration-150 flex items-center gap-1 text-xs font-bold cursor-pointer"
+                  title="تسجيل الخروج"
                 >
-                  <LogOut size={10} />
+                  <LogOut size={13} />
+                  <span>خروج</span>
                 </button>
               )}
             </div>
-          );
-        })()}
+          )}
+          {isCollapsed && onLogout && (
+            <button
+              onClick={onLogout}
+              className="absolute -bottom-1 -left-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all border border-slate-800 z-10 scale-90 cursor-pointer"
+              title="تسجيل الخروج"
+            >
+              <LogOut size={10} />
+            </button>
+          )}
+        </div>
       </div>
     </aside>
   );

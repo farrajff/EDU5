@@ -303,37 +303,13 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
           )}
         </div>
 
-        {(() => {
-          let googleUser: any = null;
-          try {
-            const raw = sessionStorage.getItem('authUser');
-            if (raw) googleUser = JSON.parse(raw);
-          } catch {
-            googleUser = null;
-          }
-
-          return (
-            <div 
-              onClick={onProfileClick}
-              className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-indigo-600 border border-slate-200 dark:border-slate-700 transition-transform hover:scale-105 cursor-pointer shadow-2xs"
-              title={googleUser?.displayName ? `حساب: ${googleUser.displayName}` : 'الملف الشخصي والإعدادات'}
-            >
-              {googleUser?.photoURL ? (
-                <img 
-                  src={googleUser.photoURL} 
-                  alt={googleUser.displayName || 'الحساب'} 
-                  className="w-full h-full object-cover" 
-                />
-              ) : googleUser?.displayName ? (
-                <span className="font-black text-sm text-indigo-600">
-                  {googleUser.displayName[0]}
-                </span>
-              ) : (
-                <User size={20} strokeWidth={2} />
-              )}
-            </div>
-          );
-        })()}
+        <div 
+          onClick={onProfileClick}
+          className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-indigo-600 border border-slate-200 dark:border-slate-700 transition-transform hover:scale-105 cursor-pointer shadow-2xs"
+          title="الملف الشخصي والإعدادات"
+        >
+          <User size={20} strokeWidth={2} />
+        </div>
       </div>
     </header>
   );

@@ -20,7 +20,6 @@ import { LoginGate } from './pages/LoginGate';
 import { BottomNav } from './components/BottomNav';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
-import { logoutGoogle, onGoogleAuthStateChanged } from './lib/firebaseAuth';
 
 function AppContent() {
   const { state, updateState } = useApp();
@@ -162,12 +161,9 @@ function AppContent() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logoutGoogle();
-    } catch (e) {
-      console.error(e);
-    }
+  const handleLogout = () => {
+    sessionStorage.removeItem('isAppAuthenticated');
+    sessionStorage.removeItem('authUser');
     window.location.reload();
   };
 
@@ -287,25 +283,6 @@ export default function App() {
            params.get('role') === 'student' || 
            window.location.hash === '#student';
   });
-
-  // Keep Firebase Auth state synced
-  useEffect(() => {
-    const unsubscribe = onGoogleAuthStateChanged((user) => {
-      if (user) {
-        setIsAuthenticated(true);
-        sessionStorage.setItem('isAppAuthenticated', 'true');
-        if (!sessionStorage.getItem('authUser')) {
-          sessionStorage.setItem('authUser', JSON.stringify({
-            uid: user.uid,
-            displayName: user.displayName || 'المعلم',
-            email: user.email || '',
-            photoURL: user.photoURL || ''
-          }));
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     const handleUrlChange = () => {
