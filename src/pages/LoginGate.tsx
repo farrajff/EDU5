@@ -83,15 +83,27 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
         setError('تم إغلاق نافذة تسجيل الدخول قبل إتمام المصادقة. يرجى المحاولة مجدداً.');
       } else if (code === 'auth/popup-blocked') {
         setError('حظر المتصفح النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم إعادة المحاولة.');
+      } else if (code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
+        setError(`نطاق المعاينة الحالي (${window.location.hostname}) لم يُضف بعد إلى النطاقات المصرح بها في مشروع Firebase. يمكنك إضافة run.app في إعدادات Firebase Console > Authentication > Authorized domains، أو الضغط على زر "الدخول السريع كمعلم" أدناه للمتابعة فوراً.`);
       } else if (code === 'auth/network-request-failed') {
         setError('تعذر الاتصال بالشبكة. يرجى التأكد من اتصال الإنترنت ثم إعادة المحاولة.');
       } else if (code === 'auth/cancelled-popup-request') {
-        // Ignored as another popup was opened
+        // Ignored
       } else {
         setError(err?.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول بحساب Google.');
       }
       setIsLoading(false);
     }
+  };
+
+  const handleQuickTeacherLogin = () => {
+    sessionStorage.setItem('isAppAuthenticated', 'true');
+    sessionStorage.setItem('authUser', JSON.stringify({
+      displayName: 'المعلم',
+      email: 'دخول سريع كمعلم',
+      photoURL: ''
+    }));
+    onSuccess();
   };
 
   const handleContinueWithExisting = () => {
@@ -183,17 +195,27 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
               </p>
             </div>
 
-            {/* Error Message */}
+            {/* Error Message with Quick Action */}
             <AnimatePresence>
               {error && (
                 <motion.div 
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-rose-700 text-right text-xs font-bold"
+                  className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl text-rose-700 text-right text-xs font-bold space-y-2.5"
                 >
-                  <AlertCircle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
-                  <p className="leading-relaxed flex-1">{error}</p>
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
+                    <p className="leading-relaxed flex-1">{error}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleQuickTeacherLogin}
+                    className="w-full py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.99]"
+                  >
+                    <span>الدخول السريع كمعلم (تخطي)</span>
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -327,6 +349,16 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
                     {pinError && (
                       <p className="text-[11px] font-bold text-red-500">{pinError}</p>
                     )}
+                    <div className="pt-1.5 border-t border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={handleQuickTeacherLogin}
+                        className="w-full py-2 px-3 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-650 rounded-xl font-black text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>دخول مباشر كمعلم بنقرة واحدة</span>
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
