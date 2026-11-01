@@ -9,8 +9,19 @@ import {
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+let app: any = null;
+let authInstance: any = null;
+
+try {
+  if (firebaseConfig && (firebaseConfig as any).apiKey) {
+    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    authInstance = getAuth(app);
+  }
+} catch (err) {
+  console.warn('[Firebase Auth] Initialization skipped or failed:', err);
+}
+
+export const auth = authInstance;
 
 // Google Auth Provider configured with Google Drive scope
 const loginProvider = new GoogleAuthProvider();
@@ -227,12 +238,16 @@ export const logoutGoogle = async (): Promise<void> => {
 };
 
 export const getCurrentGoogleUser = (): User | null => {
-  return auth.currentUser;
+  return auth?.currentUser || null;
 };
 
 export const onGoogleAuthStateChanged = (
   callback: (user: User | null) => void
 ) => {
+  if (!auth) {
+    callback(null);
+    return () => {};
+  }
   return onAuthStateChanged(auth, callback);
 };
 
@@ -240,6 +255,10 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  if (!auth) {
+    if (onAuthFailure) onAuthFailure();
+    return () => {};
+  }
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       if (cachedAccessToken) {
