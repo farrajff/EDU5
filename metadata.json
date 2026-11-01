@@ -1,0 +1,8 @@
+{
+  "name": "الدراسات الإسلامية",
+  "description": "منصة أكاديمية متطورة لإدارة الفصول الدراسية، الدرجات، الحضور، ومتابعة الحفظ بتصميم عصري وأدوات ذكية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

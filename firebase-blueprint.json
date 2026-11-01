@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "AppState": {
+      "title": "AppState",
+      "description": "The entire application data state including students, classes, homework, grades, and attendance.",
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "object",
+          "description": "A map of state properties and values"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of the last local or cloud state modification"
+        }
+      },
+      "required": ["state", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/app_state/{documentId}": {
+      "schema": "AppState",
+      "description": "Persistent cloud-managed storage for the Academic Atelier state, synchronizing local, preview, and published containers."
+    }
+  }
+}
