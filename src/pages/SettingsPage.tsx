@@ -138,9 +138,14 @@ export function SettingsPage() {
 
   const handleBackup = async () => {
     try {
-      await syncData();
-      addLog("تم إجراء نسخة احتياطية يدوية للبيانات.");
-      showToast("تم الانتهاء من النسخ الاحتياطي السحابي بنجاح!", "success");
+      const success = await syncData();
+      if (success) {
+        addLog("تم إجراء نسخة احتياطية ومزامنة كاملة للبيانات على Google Drive.");
+        showToast("تم الانتهاء من حفظ البيانات على جوجل درايف بنجاح! ✓", "success");
+      } else {
+        addLog("تم حفظ البيانات محلياً على الجهاز.");
+        showToast("تم الحفظ محلياً. يرجى ربط حساب Google لمزامنة السحاب.", "info");
+      }
     } catch (err) {
       showToast("حدث خطأ أثناء الاتصال أو النسخ الاحتياطي السحابي.", "error");
     }
@@ -150,11 +155,21 @@ export function SettingsPage() {
     try {
       await storageService.connect();
       await reconnectAndLoad();
-      addLog("تم ربط النظام بحساب Google Drive ومطابقة الملفات المشتركة.");
-      showToast("تم الاتصال بمزود المزامنة جوجل درايف بنجاح!", "success");
+      addLog("تم ربط النظام بحساب Google Drive وحفظ البيانات بنجاح.");
+      showToast("تم الاتصال بمزود المزامنة جوجل درايف وحفظ البيانات بنجاح! ✓", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || "فشل الاتصال بمزود السحابة.", "error");
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await storageService.disconnect();
+      addLog("تم فصل الاتصال بمزود Google Drive.");
+      showToast("تم إلغاء الربط وتسجيل الخروج من Google بنجاح.", "info");
     } catch (err) {
       console.error(err);
-      showToast("فشل الاتصال بمزود السحابة.", "error");
     }
   };
 
@@ -455,12 +470,22 @@ export function SettingsPage() {
             
             <div className="space-y-2">
               <div 
-                onClick={isConnected ? undefined : handleConnect}
+                onClick={isConnected ? handleDisconnect : handleConnect}
                 className={`bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center justify-between border border-white/10 hover:bg-white/20 transition-all cursor-pointer ${isConnected ? 'opacity-100' : 'opacity-70'}`}
+                title={isConnected ? 'انقر لقطع الاتصال بحساب Google' : 'انقر للربط بحساب Google Drive'}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shrink-0"><Cloud size={16} /></div>
-                  <span className="font-black text-sm text-white">جوجل درايف (نشط)</span>
+                  <div>
+                    <span className="font-black text-sm text-white block">
+                      {isConnected ? 'جوجل درايف (متصل ونشط)' : 'ربط جوجل درايف'}
+                    </span>
+                    {isConnected && storageService.getGoogleUser()?.email && (
+                      <span className="text-[10px] text-white/80 block font-mono" dir="ltr">
+                        {storageService.getGoogleUser()?.email}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className={`w-10 h-5 rounded-full relative flex items-center px-0.5 transition-colors ${isConnected ? 'bg-emerald-500' : 'bg-white/20'}`}>
                   <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isConnected ? 'mr-auto' : 'ml-auto'}`} />

@@ -22,6 +22,7 @@ export function AttendancePage() {
   const classesList = state.classes || [];
   const activeClassesList = classesList.filter(c => !c.includes('أرشيف') && !c.includes('ارشيف') && !c.includes('الأرشيف'));
   const attendance = state.attendance || [];
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -38,7 +39,13 @@ export function AttendancePage() {
   };
 
   const handleSave = async () => {
-    await syncData();
+    const success = await syncData();
+    if (success) {
+      setToastMsg('تم حفظ التحضير ومزامنته على Google Drive بنجاح! ✓');
+    } else {
+      setToastMsg('تم حفظ التحضير محلياً على جهازك.');
+    }
+    setTimeout(() => setToastMsg(null), 3500);
   };
 
   const classes = ['الكل', ...activeClassesList];
@@ -276,6 +283,13 @@ export function AttendancePage() {
         <span>{syncInProgress ? 'جاري المزامنة...' : 'حفظ سحابي'}</span>
         <CheckCircle2 size={16} className={`transition-transform group-hover:rotate-12 ${syncInProgress ? 'animate-spin' : ''}`} />
       </button>
+
+      {toastMsg && (
+        <div className="fixed bottom-24 lg:bottom-20 left-4 sm:left-6 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm font-black border border-slate-700 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <span>{toastMsg}</span>
+        </div>
+      )}
     </div>
   );
 }

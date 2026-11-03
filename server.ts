@@ -41,19 +41,31 @@ async function startServer() {
   app.use(cookieParser());
 
   const getOAuthClient = (req: express.Request) => {
-    const tokensStr = req.cookies.google_tokens;
-    if (!tokensStr) {
+    let accessToken: string | null = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7).trim();
+    } else if (req.cookies.google_tokens) {
+      try {
+        const tokens = JSON.parse(req.cookies.google_tokens);
+        accessToken = tokens.access_token;
+      } catch {
+        // Ignore parse error
+      }
+    }
+
+    if (!accessToken) {
       throw new Error('Not authenticated with Google');
     }
-    const tokens = JSON.parse(tokensStr);
+
     const client = new OAuth2Client();
-    client.setCredentials(tokens);
+    client.setCredentials({ access_token: accessToken, token_type: 'Bearer' });
     return client;
   };
 
   // Auth Connection Routes
   app.post('/api/storage/connect', (req, res) => {
-    const { accessToken } = req.body;
+    const accessToken = req.body?.accessToken || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7).trim() : null);
     if (!accessToken) {
       return res.status(400).json({ error: 'Access token is required' });
     }
@@ -84,8 +96,9 @@ async function startServer() {
 
   // Storage API Check
   app.get('/api/storage/check', (req, res) => {
+    const hasBearer = !!req.headers.authorization?.startsWith('Bearer ');
     const tokens = req.cookies.google_tokens;
-    res.json({ connected: !!tokens });
+    res.json({ connected: hasBearer || !!tokens });
   });
 
   // Local File Cache Endpoints (allows any user, including students, to load/save without Drive/Google auth)
@@ -164,17 +177,8 @@ async function startServer() {
   });
 
   app.post('/api/storage/sync', async (req, res) => {
-    const tokensStr = req.cookies.google_tokens;
-    if (!tokensStr) {
-      return res.status(401).json({ error: 'Not authenticated with Google' });
-    }
-
     try {
-      const tokens = JSON.parse(tokensStr);
       const client = getOAuthClient(req);
-      client.setCredentials(tokens);
-      
-      const sheets = google.sheets({ version: 'v4', auth: client });
       const drive = google.drive({ version: 'v3', auth: client });
 
       // Logic to find or create the database spreadsheet
@@ -234,13 +238,8 @@ async function startServer() {
   });
 
   app.get('/api/storage/load', async (req, res) => {
-    const tokensStr = req.cookies.google_tokens;
-    if (!tokensStr) return res.status(401).json({ error: 'Not authenticated' });
-
     try {
-      const tokens = JSON.parse(tokensStr);
       const client = getOAuthClient(req);
-      client.setCredentials(tokens);
       const drive = google.drive({ version: 'v3', auth: client });
 
       const fileName = 'AcademicAtelierData.json';

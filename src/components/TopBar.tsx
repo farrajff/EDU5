@@ -1,4 +1,4 @@
-import { Bell, Menu, User, Cloud, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Clock, Info, Moon, Sun, PanelRight, PanelBottom } from 'lucide-react';
+import { Bell, Menu, User, Cloud, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Clock, Info, Moon, Sun, PanelRight, PanelBottom, RefreshCw, UploadCloud, LogOut, Check } from 'lucide-react';
 import { useState } from 'react';
 import { storageService } from '../lib/storageService';
 import { useApp } from '../context/AppContext';
@@ -11,18 +11,43 @@ interface TopBarProps {
 }
 
 export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout }: TopBarProps) {
-  const { state, updateState, isConnected, reconnectAndLoad } = useApp();
+  const { state, updateState, isConnected, reconnectAndLoad, syncData, syncInProgress, connectGoogle, disconnectGoogle } = useApp() as any;
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showDriveMenu, setShowDriveMenu] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const currentSemester = state.currentSemester || '1';
   const currentPeriod = state.currentPeriod || '1';
 
   const handleConnect = async () => {
     try {
-      await storageService.connect();
-      await reconnectAndLoad();
+      const ok = await connectGoogle();
+      if (ok) {
+        showToast('تم الاتصال بحساب Google Drive ومزامنة البيانات بنجاح! ✓');
+      } else {
+        showToast('تم إلغاء الاتصال أو تعذر إكمال الربط.');
+      }
     } catch (err) {
       console.error(err);
+      showToast('تعذر الاتصال بـ Google. يرجى التحقق من الاتصال.');
+    }
+  };
+
+  const handleManualSync = async () => {
+    try {
+      const ok = await syncData();
+      if (ok) {
+        showToast('تم حفظ البيانات على Google Drive بنجاح! ✓');
+      } else {
+        showToast('تم الحفظ محلياً على الجهاز.');
+      }
+    } catch (e) {
+      showToast('حدث خطأ أثناء المزامنة السحابية.');
     }
   };
 
@@ -175,19 +200,105 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 md:gap-4 shrink-0">
-        <div className="flex flex-col items-end">
+        {/* Google Drive Status & Quick Sync Popover */}
+        <div className="relative">
           <button 
-            onClick={isConnected ? undefined : handleConnect}
-            className={`flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl transition-all text-xs font-semibold ${
+            onClick={() => {
+              if (isConnected) {
+                setShowDriveMenu(!showDriveMenu);
+              } else {
+                handleConnect();
+              }
+            }}
+            disabled={syncInProgress}
+            className={`flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl transition-all text-xs font-semibold cursor-pointer select-none ${
               isConnected 
-                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-2xs' 
-                : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/70 shadow-2xs' 
+                : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
             }`}
-            title={isConnected ? 'متصل بجوجل درايف' : 'ربط جوجل درايف'}
+            title={isConnected ? 'Google Drive متصل - انقر للخيارات والمزامنة' : 'انقر لربط حساب Google Drive للحفظ السحابي'}
           >
-            {isConnected ? <Cloud size={16} className="text-emerald-500" /> : <CloudOff size={16} className="text-slate-400" />}
-            <span className="hidden sm:inline">{isConnected ? 'متصل بجوجل درايف' : 'ربط درايف'}</span>
+            {syncInProgress ? (
+              <RefreshCw size={15} className="animate-spin text-indigo-600" />
+            ) : isConnected ? (
+              <Cloud size={15} className="text-emerald-500 fill-emerald-100" />
+            ) : (
+              <CloudOff size={15} className="text-slate-400" />
+            )}
+            <span className="hidden sm:inline">
+              {syncInProgress ? 'جاري الحفظ...' : isConnected ? 'متصل بجوجل درايف' : 'ربط درايف'}
+            </span>
           </button>
+
+          {/* Drive Actions Dropdown */}
+          {showDriveMenu && isConnected && (
+            <div 
+              className="absolute left-0 sm:right-auto mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <Cloud size={14} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800">جوجل درايف متصل</p>
+                    <p className="text-[10px] text-slate-400 truncate max-w-[170px]" dir="ltr">
+                      {storageService.getGoogleUser()?.email || 'تمت المصادقة بنجاح'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDriveMenu(false)}
+                  className="text-slate-400 hover:text-slate-600 text-xs p-1 rounded-lg"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <button
+                  onClick={() => {
+                    setShowDriveMenu(false);
+                    handleManualSync();
+                  }}
+                  disabled={syncInProgress}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors text-right"
+                >
+                  <UploadCloud size={15} className="text-indigo-600 shrink-0" />
+                  <span>حفظ ومزامنة فورية الآن</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setShowDriveMenu(false);
+                    try {
+                      await reconnectAndLoad();
+                      showToast('تم تحديث واستعادة البيانات من جوجل درايف بنجاح! ✓');
+                    } catch {
+                      showToast('تعذر استعادة البيانات من جوجل درايف.');
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-right"
+                >
+                  <RefreshCw size={15} className="text-emerald-600 shrink-0" />
+                  <span>تحميل أحدث نسخة من السحاب</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setShowDriveMenu(false);
+                    await disconnectGoogle();
+                    showToast('تم تسجيل الخروج وفصل ربط Google Drive.');
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-right"
+                >
+                  <LogOut size={15} className="shrink-0" />
+                  <span>قطع الاتصال بحساب Google</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Dark Mode Quick Toggle */}
@@ -311,6 +422,14 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
           <User size={20} strokeWidth={2} />
         </div>
       </div>
+
+      {/* Floating Status Notification Toast */}
+      {toastMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm font-black border border-slate-700 backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-200">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </header>
   );
 }
