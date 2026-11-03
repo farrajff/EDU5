@@ -325,18 +325,19 @@ export const signInWithGoogle = async (): Promise<GoogleAuthResult> => {
 
   isSigningIn = true;
   try {
-    // Primary path: Direct Google Identity Services (GIS)
-    // Ensures flawless authentication on GitHub Pages and custom preview hosts
-    const result = await signInWithGoogleOAuthDirect();
-    return result;
-  } catch (error: any) {
-    console.warn('[Google Auth] GIS primary flow encountered an issue, trying fallback:', error);
-
-    // Fallback: Try Firebase Popup if available and not blocked
+    // 1. Primary path: Firebase Auth Popup
+    // Since the user added farrajff.github.io to Firebase Console Authorized Domains,
+    // Firebase Auth popup uses gen-lang-client-0270287581.firebaseapp.com and completely avoids
+    // Google Cloud Console origin_mismatch 400 errors!
     if (auth) {
       try {
+        console.log('[Google Auth] Initiating Firebase Auth Google popup with Drive scope...');
         const loginProvider = new GoogleAuthProvider();
         loginProvider.addScope('https://www.googleapis.com/auth/drive.file');
+        loginProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
+        loginProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+        loginProvider.setCustomParameters({ prompt: 'select_account' });
+
         const popupResult = await signInWithPopup(auth, loginProvider);
         const user = popupResult.user;
         const credential = GoogleAuthProvider.credentialFromResult(popupResult);
@@ -345,6 +346,7 @@ export const signInWithGoogle = async (): Promise<GoogleAuthResult> => {
         if (accessToken) {
           cachedAccessToken = accessToken;
           const expiresAt = Date.now() + 3500 * 1000;
+          cachedTokenExpiresAt = expiresAt;
           localStorage.setItem(TOKEN_KEY, accessToken);
           localStorage.setItem(EXPIRES_AT_KEY, String(expiresAt));
           localStorage.setItem('gdrive_connected', 'true');
@@ -352,23 +354,48 @@ export const signInWithGoogle = async (): Promise<GoogleAuthResult> => {
 
         const userSummary: GoogleUserInfo = {
           uid: user.uid,
-          displayName: user.displayName || 'المعلم',
+          displayName: user.displayName || user.email?.split('@')[0] || 'المعلم',
           email: user.email || '',
           photoURL: user.photoURL || ''
         };
 
-        localStorage.setItem(USER_KEY, JSON.stringify(userSummary));
+        try {
+          localStorage.setItem(USER_KEY, JSON.stringify(userSummary));
+          sessionStorage.setItem('authUser', JSON.stringify(userSummary));
+        } catch {}
+
+        // Best effort: register with server proxy if available
+        if (accessToken) {
+          try {
+            fetch('/api/storage/connect', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({ accessToken }),
+            }).catch(() => {});
+          } catch {}
+        }
+
+        console.log('[Google Auth] Firebase Auth sign-in successful for:', userSummary.email);
         return {
           user: userSummary,
           accessToken,
           driveConnected: !!accessToken
         };
       } catch (popupErr: any) {
-        console.error('[Google Auth] Fallback popup error:', popupErr);
+        console.warn('[Google Auth] Firebase popup encountered an issue, checking fallback:', popupErr);
+        if (popupErr?.code === 'auth/popup-closed-by-user') {
+          throw new Error('تم إغلاق نافذة تسجيل الدخول من قبل المستخدم');
+        }
+        // If Firebase Auth threw an error other than user closing the popup, continue to GIS
       }
     }
 
-    throw error;
+    // 2. Secondary path: Direct Google Identity Services (GIS)
+    const result = await signInWithGoogleOAuthDirect();
+    return result;
   } finally {
     isSigningIn = false;
   }
