@@ -33,6 +33,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { storageService } from '../lib/storageService';
 import { THEME_OPTIONS } from '../lib/themeService';
+import { OAuthOriginModal } from '../components/OAuthOriginModal';
 
 export function SettingsPage() {
   const { state, updateState, syncData, syncInProgress, isConnected, reconnectAndLoad } = useApp();
@@ -54,6 +55,7 @@ export function SettingsPage() {
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isNewYearModalOpen, setIsNewYearModalOpen] = useState(false);
+  const [isOriginHelpOpen, setIsOriginHelpOpen] = useState(false);
   const [archiveSuffix, setArchiveSuffix] = useState('');
   const [checkReport, setCheckReport] = useState<any>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -159,7 +161,8 @@ export function SettingsPage() {
       showToast("تم الاتصال بمزود المزامنة جوجل درايف وحفظ البيانات بنجاح! ✓", "success");
     } catch (err: any) {
       console.error(err);
-      showToast(err?.message || "فشل الاتصال بمزود السحابة.", "error");
+      setIsOriginHelpOpen(true);
+      showToast("تعذر الاتصال بـ Google. يرجى مراجعة نافذة تفعيل الرابط (origin_mismatch).", "error");
     }
   };
 
@@ -491,6 +494,17 @@ export function SettingsPage() {
                   <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isConnected ? 'mr-auto' : 'ml-auto'}`} />
                 </div>
               </div>
+
+              {!isConnected && (
+                <button
+                  type="button"
+                  onClick={() => setIsOriginHelpOpen(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/25 hover:bg-amber-500/35 text-amber-100 border border-amber-300/30 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <ShieldCheck size={14} className="text-amber-300" />
+                  <span>حل مشكلة (خطأ 400: origin_mismatch)</span>
+                </button>
+              )}
               
               <div className="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/5 opacity-40 grayscale cursor-not-allowed">
                 <div className="flex items-center gap-3">
@@ -1476,6 +1490,13 @@ export function SettingsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* OAuth Origin Mismatch Help Modal */}
+      <OAuthOriginModal
+        isOpen={isOriginHelpOpen}
+        onClose={() => setIsOriginHelpOpen(false)}
+        onExportJson={handleExportSystem}
+      />
     </div>
   );
 }

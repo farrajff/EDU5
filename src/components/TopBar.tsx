@@ -1,7 +1,8 @@
-import { Bell, Menu, User, Cloud, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Clock, Info, Moon, Sun, PanelRight, PanelBottom, RefreshCw, UploadCloud, LogOut, Check } from 'lucide-react';
+import { Bell, Menu, User, Cloud, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Clock, Info, Moon, Sun, PanelRight, PanelBottom, RefreshCw, UploadCloud, LogOut, Check, ShieldAlert, DownloadCloud, HardDrive } from 'lucide-react';
 import { useState } from 'react';
 import { storageService } from '../lib/storageService';
 import { useApp } from '../context/AppContext';
+import { OAuthOriginModal } from './OAuthOriginModal';
 
 interface TopBarProps {
   title: string;
@@ -14,6 +15,7 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
   const { state, updateState, isConnected, reconnectAndLoad, syncData, syncInProgress, connectGoogle, disconnectGoogle } = useApp() as any;
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDriveMenu, setShowDriveMenu] = useState(false);
+  const [showOriginModal, setShowOriginModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -24,17 +26,32 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
   const currentSemester = state.currentSemester || '1';
   const currentPeriod = state.currentPeriod || '1';
 
+  const handleExportJson = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `نسخة_درجات_وبيانات_الدراسات_الإسلامية_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('تم تصدير نسخة البيانات والدرجات بنجاح! ✓');
+    } catch {
+      showToast('حدث خطأ أثناء تصدير البيانات.');
+    }
+  };
+
   const handleConnect = async () => {
     try {
       const ok = await connectGoogle();
       if (ok) {
         showToast('تم الاتصال بحساب Google Drive ومزامنة البيانات بنجاح! ✓');
       } else {
-        showToast('تم إلغاء الاتصال أو تعذر إكمال الربط.');
+        showToast('تعذر إكمال الربط. إذا ظهر خطأ 400 origin_mismatch، انقر على زر المساعدة.');
       }
     } catch (err) {
       console.error(err);
-      showToast('تعذر الاتصال بـ Google. يرجى التحقق من الاتصال.');
+      setShowOriginModal(true);
     }
   };
 
@@ -203,20 +220,14 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
         {/* Google Drive Status & Quick Sync Popover */}
         <div className="relative">
           <button 
-            onClick={() => {
-              if (isConnected) {
-                setShowDriveMenu(!showDriveMenu);
-              } else {
-                handleConnect();
-              }
-            }}
+            onClick={() => setShowDriveMenu(!showDriveMenu)}
             disabled={syncInProgress}
             className={`flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl transition-all text-xs font-semibold cursor-pointer select-none ${
               isConnected 
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/70 shadow-2xs' 
                 : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
             }`}
-            title={isConnected ? 'Google Drive متصل - انقر للخيارات والمزامنة' : 'انقر لربط حساب Google Drive للحفظ السحابي'}
+            title={isConnected ? 'Google Drive متصل - انقر للخيارات والمزامنة' : 'خيارات الحفظ السحابي وحل مشكلات الربط'}
           >
             {syncInProgress ? (
               <RefreshCw size={15} className="animate-spin text-indigo-600" />
@@ -226,78 +237,155 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
               <CloudOff size={15} className="text-slate-400" />
             )}
             <span className="hidden sm:inline">
-              {syncInProgress ? 'جاري الحفظ...' : isConnected ? 'متصل بجوجل درايف' : 'ربط درايف'}
+              {syncInProgress ? 'جاري الحفظ...' : isConnected ? 'متصل بجوجل درايف' : 'حفظ ومزامنة'}
             </span>
           </button>
 
           {/* Drive Actions Dropdown */}
-          {showDriveMenu && isConnected && (
-            <div 
-              className="absolute left-0 sm:right-auto mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-150"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                    <Cloud size={14} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-800">جوجل درايف متصل</p>
-                    <p className="text-[10px] text-slate-400 truncate max-w-[170px]" dir="ltr">
-                      {storageService.getGoogleUser()?.email || 'تمت المصادقة بنجاح'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowDriveMenu(false)}
-                  className="text-slate-400 hover:text-slate-600 text-xs p-1 rounded-lg"
-                >
-                  ✕
-                </button>
+          {showDriveMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowDriveMenu(false)}
+              />
+              <div 
+                className="absolute left-0 sm:right-auto mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-150"
+                onClick={(e) => e.stopPropagation()}
+                dir="rtl"
+              >
+                {isConnected ? (
+                  <>
+                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                          <Cloud size={14} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-800 dark:text-slate-100">جوجل درايف متصل</p>
+                          <p className="text-[10px] text-slate-400 truncate max-w-[170px]" dir="ltr">
+                            {storageService.getGoogleUser()?.email || 'تمت المصادقة بنجاح'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowDriveMenu(false)}
+                        className="text-slate-400 hover:text-slate-600 text-xs p-1 rounded-lg"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => {
+                          setShowDriveMenu(false);
+                          handleManualSync();
+                        }}
+                        disabled={syncInProgress}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors text-right cursor-pointer"
+                      >
+                        <UploadCloud size={15} className="text-indigo-600 shrink-0" />
+                        <span>حفظ ومزامنة فورية الآن</span>
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          setShowDriveMenu(false);
+                          try {
+                            await reconnectAndLoad();
+                            showToast('تم تحديث واستعادة البيانات من جوجل درايف بنجاح! ✓');
+                          } catch {
+                            showToast('تعذر استعادة البيانات من جوجل درايف.');
+                          }
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-800 hover:text-emerald-700 transition-colors text-right cursor-pointer"
+                      >
+                        <RefreshCw size={15} className="text-emerald-600 shrink-0" />
+                        <span>تحميل أحدث نسخة من السحاب</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowDriveMenu(false);
+                          handleExportJson();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-right cursor-pointer"
+                      >
+                        <DownloadCloud size={15} className="text-slate-500 shrink-0" />
+                        <span>تنزيل نسخة احتياطية (ملف JSON)</span>
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          setShowDriveMenu(false);
+                          await disconnectGoogle();
+                          showToast('تم تسجيل الخروج وفصل ربط Google Drive.');
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors text-right cursor-pointer"
+                      >
+                        <LogOut size={15} className="shrink-0" />
+                        <span>قطع الاتصال بحساب Google</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                          <CloudOff size={14} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-800 dark:text-slate-100">الحفظ السحابي غير متصل</p>
+                          <p className="text-[10px] text-slate-400">بياناتك محفوظة محلياً بأمان</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowDriveMenu(false)}
+                        className="text-slate-400 hover:text-slate-600 text-xs p-1 rounded-lg"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => {
+                          setShowDriveMenu(false);
+                          handleConnect();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors text-right cursor-pointer shadow-sm shadow-indigo-600/30"
+                      >
+                        <Cloud size={15} className="shrink-0" />
+                        <span>تسجيل الدخول وربط Google Drive</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowDriveMenu(false);
+                          setShowOriginModal(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800/60 transition-colors text-right cursor-pointer"
+                      >
+                        <ShieldAlert size={15} className="text-amber-600 shrink-0" />
+                        <span>حل مشكلة (خطأ 400: origin_mismatch)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowDriveMenu(false);
+                          handleExportJson();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-right cursor-pointer"
+                      >
+                        <DownloadCloud size={15} className="text-indigo-600 shrink-0" />
+                        <span>تصدير نسخة احتياطية محلية (JSON)</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-
-              <div className="space-y-1.5">
-                <button
-                  onClick={() => {
-                    setShowDriveMenu(false);
-                    handleManualSync();
-                  }}
-                  disabled={syncInProgress}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors text-right"
-                >
-                  <UploadCloud size={15} className="text-indigo-600 shrink-0" />
-                  <span>حفظ ومزامنة فورية الآن</span>
-                </button>
-
-                <button
-                  onClick={async () => {
-                    setShowDriveMenu(false);
-                    try {
-                      await reconnectAndLoad();
-                      showToast('تم تحديث واستعادة البيانات من جوجل درايف بنجاح! ✓');
-                    } catch {
-                      showToast('تعذر استعادة البيانات من جوجل درايف.');
-                    }
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-right"
-                >
-                  <RefreshCw size={15} className="text-emerald-600 shrink-0" />
-                  <span>تحميل أحدث نسخة من السحاب</span>
-                </button>
-
-                <button
-                  onClick={async () => {
-                    setShowDriveMenu(false);
-                    await disconnectGoogle();
-                    showToast('تم تسجيل الخروج وفصل ربط Google Drive.');
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-right"
-                >
-                  <LogOut size={15} className="shrink-0" />
-                  <span>قطع الاتصال بحساب Google</span>
-                </button>
-              </div>
-            </div>
+            </>
           )}
         </div>
         
@@ -430,6 +518,13 @@ export function TopBar({ title, onToggleSidebar, onProfileClick, isBottomLayout 
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* OAuth Origin Mismatch Guide Modal */}
+      <OAuthOriginModal
+        isOpen={showOriginModal}
+        onClose={() => setShowOriginModal(false)}
+        onExportJson={handleExportJson}
+      />
     </header>
   );
 }
