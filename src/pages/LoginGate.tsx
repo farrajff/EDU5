@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, ShieldAlert, KeyRound, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Lock, ShieldAlert, KeyRound, ArrowRight, RefreshCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface LoginGateProps {
@@ -110,6 +110,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
   };
 
   const handleKeypadPress = (digit: string) => {
+    // Find first empty slot
     const firstEmptyIndex = pin.indexOf('');
     if (firstEmptyIndex !== -1) {
       const newPin = [...pin];
@@ -117,6 +118,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
       setPin(newPin);
       setError('');
 
+      // Focus that cell or next cell
       const nextIndex = Math.min(5, firstEmptyIndex + 1);
       if (inputRefs.current[nextIndex]) {
         inputRefs.current[nextIndex].focus();
@@ -129,6 +131,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
   };
 
   const handleKeypadBackspace = () => {
+    // Find last non-empty slot
     let lastFilledIndex = -1;
     for (let i = 5; i >= 0; i--) {
       if (pin[i] !== '') {
@@ -200,7 +203,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
           animate={isShaking ? { x: [-10, 10, -8, 8, -5, 5, 0] } : { y: 0, opacity: 1 }}
           transition={{ duration: 0.4 }}
           initial={{ y: 20, opacity: 0 }}
-          className="w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl p-6.5 shadow-xl shadow-slate-200/60 relative"
+          className="w-full bg-white/95 backdrop-blur-xl border border-slate-205 border-slate-200 rounded-3xl p-6.5 shadow-xl shadow-slate-200/60 relative"
         >
           {/* Internal Geometric border */}
           <div className="absolute inset-2.5 border border-slate-100 rounded-2xl pointer-events-none" />
@@ -216,7 +219,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
                 <input
                   key={index}
                   ref={(el) => { if (el) inputRefs.current[index] = el; }}
-                  type="password"
+                  type="text"
                   inputMode="numeric"
                   maxLength={1}
                   value={char}
@@ -239,7 +242,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
               <motion.div 
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2.5 text-red-600 text-right"
+                className="bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2.5 text-red-655 text-red-650 text-right"
               >
                 <ShieldAlert className="w-5 h-5 shrink-0 text-red-500" />
                 <p className="text-sm font-bold leading-relaxed">{error}</p>
@@ -282,7 +285,7 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
                       key={digit}
                       type="button"
                       onClick={() => handleKeypadPress(digit)}
-                      className="w-full h-12 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 hover:border-indigo-200 active:scale-95 transition-all text-base font-extrabold text-slate-700 hover:text-indigo-600 cursor-pointer"
+                      className="w-full h-12 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 hover:border-indigo-200 active:scale-95 transition-all text-base font-extrabold text-slate-700 hover:text-indigo-600"
                     >
                       {digit}
                     </button>
@@ -290,21 +293,21 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
                   <button
                     type="button"
                     onClick={handleKeypadClear}
-                    className="w-full h-12 rounded-xl bg-red-50/50 hover:bg-red-50 border border-red-100/60 hover:border-red-200 text-slate-500 hover:text-red-600 active:scale-95 transition-all text-sm font-bold cursor-pointer"
+                    className="w-full h-12 rounded-xl bg-red-50/50 hover:bg-red-50 border border-red-100/60 hover:border-red-200 text-slate-500 hover:text-red-650 active:scale-95 transition-all text-sm font-bold"
                   >
                     مسح
                   </button>
                   <button
                     type="button"
                     onClick={() => handleKeypadPress('0')}
-                    className="w-full h-12 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 hover:border-indigo-200 active:scale-95 transition-all text-base font-extrabold text-slate-700 hover:text-indigo-600 cursor-pointer"
+                    className="w-full h-12 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 hover:border-indigo-200 active:scale-95 transition-all text-base font-extrabold text-slate-700 hover:text-indigo-600"
                   >
                     0
                   </button>
                   <button
                     type="button"
                     onClick={handleKeypadBackspace}
-                    className="w-full h-12 rounded-xl bg-slate-100/40 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300 text-slate-600 hover:text-slate-800 active:scale-95 transition-all text-sm font-bold flex items-center justify-center cursor-pointer"
+                    className="w-full h-12 rounded-xl bg-slate-100/40 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300 text-slate-550 text-slate-550 hover:text-slate-700 active:scale-95 transition-all text-sm font-bold flex items-center justify-center"
                   >
                     حذف
                   </button>
@@ -312,24 +315,14 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
               )}
             </AnimatePresence>
 
-            {/* Direct Student Portal Link */}
-            <div className="pt-2 border-t border-slate-100">
-              <a
-                href="?portal=student"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors py-1 px-3 rounded-lg hover:bg-indigo-50/60"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>هل أنت طالب؟ الانتقال مباشرة إلى بوابة الطلاب الذكية</span>
-              </a>
-            </div>
 
           </div>
         </motion.div>
 
         {/* Footer Brand watermark */}
-        <p className="text-slate-400 text-xs font-bold mt-8 tracking-wider uppercase text-center flex items-center gap-1.5 opacity-80">
+        <p className="text-slate-450 text-xs font-bold mt-8 tracking-wider uppercase text-center flex items-center gap-1.5 opacity-80">
           <KeyRound className="w-3.5 h-3.5 text-indigo-500" strokeWidth={2.5} />
-          بوابة الوصول محميّة برمز أمان المعلم
+          بوابة الوصول محميّة ببروتوكولات التشفير الأكاديمي
         </p>
 
       </div>

@@ -83,7 +83,6 @@ export function GradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [toast, setToast] = useState<{ hwTitle: string, studentName: string, state: boolean } | null>(null);
-  const [saveNotification, setSaveNotification] = useState<string | null>(null);
   const [errorFields, setErrorFields] = useState<Record<string, boolean>>({});
   const [selectedStudentForAttendance, setSelectedStudentForAttendance] = useState<any | null>(null);
   const [selectedStudentForReport, setSelectedStudentForReport] = useState<any | null>(null);
@@ -122,11 +121,8 @@ export function GradingPage() {
   const handleSave = async () => {
     const success = await syncData();
     if (success) {
-      setSaveNotification('تم حفظ الدرجات ومزامنتها على Google Drive بنجاح! ✓');
-    } else {
-      setSaveNotification('تم حفظ الدرجات محلياً على جهازك.');
+      // Optional: Show success notification
     }
-    setTimeout(() => setSaveNotification(null), 3500);
   };
 
   const setAllBooleans = (studentId: string, type: 'homework' | 'participation', value: boolean) => {
@@ -1450,21 +1446,6 @@ export function GradingPage() {
               </h5>
               <p className="text-[10px] text-slate-500 font-semibold">للطالب: <span className="font-extrabold text-slate-600">{toast.studentName}</span></p>
             </div>
-          </motion.div>
-        )}
-
-        {saveNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-6 z-[100] max-w-sm bg-slate-900/95 text-white backdrop-blur border border-slate-700 rounded-2xl shadow-2xl p-4 font-black flex items-center gap-3 text-right"
-            dir="rtl"
-          >
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-              <CheckCircle2 size={16} />
-            </div>
-            <p className="text-xs font-black">{saveNotification}</p>
           </motion.div>
         )}
       </AnimatePresence>

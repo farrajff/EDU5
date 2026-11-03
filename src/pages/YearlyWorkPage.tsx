@@ -59,7 +59,6 @@ export function YearlyWorkPage() {
   const grades = state.grades || [];
 
   const [selectedClass, setSelectedClass] = useState('الكل');
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // --- Accordion states for the Reports (collapsed by default) ---
   const [isHwReportCollapsed, setIsHwReportCollapsed] = useState(true);
@@ -384,13 +383,7 @@ export function YearlyWorkPage() {
   }, []);
 
   const handleSaveAllHifz = async () => {
-    const success = await syncData();
-    if (success) {
-      setToastMsg('تم حفظ مهام الحفظ ومزامنتها على Google Drive بنجاح! ✓');
-    } else {
-      setToastMsg('تم حفظ المهام محلياً على جهازك.');
-    }
-    setTimeout(() => setToastMsg(null), 3500);
+    await syncData();
   };
 
   const handleCreateHifzTask = () => {
@@ -2102,13 +2095,6 @@ export function YearlyWorkPage() {
           </div>
         )}
       </AnimatePresence>
-
-      {toastMsg && (
-        <div className="fixed bottom-24 lg:bottom-10 left-4 sm:left-6 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm font-black border border-slate-700 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
 
     </div>
   );

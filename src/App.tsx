@@ -161,12 +161,6 @@ function AppContent() {
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('isAppAuthenticated');
-    sessionStorage.removeItem('authUser');
-    window.location.reload();
-  };
-
   return (
     <div className="fixed inset-0 w-full h-full h-[100dvh] flex flex-col bg-background overflow-hidden relative">
       {/* Upper area containing Sidebar (if desktop sidebar mode) + Main scrollable view */}
@@ -180,7 +174,10 @@ function AppContent() {
             onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
             isMobile={false}
             onEnterStudentPortal={enterStudentMode}
-            onLogout={handleLogout}
+            onLogout={() => {
+              sessionStorage.removeItem('isAppAuthenticated');
+              window.location.reload();
+            }}
           />
         )}
 
@@ -197,7 +194,10 @@ function AppContent() {
               onToggleCollapse={() => setIsMobileDrawerOpen(false)}
               isMobile={true}
               onEnterStudentPortal={enterStudentMode}
-              onLogout={handleLogout}
+              onLogout={() => {
+                sessionStorage.removeItem('isAppAuthenticated');
+                window.location.reload();
+              }}
             />
             <div 
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 transition-opacity"

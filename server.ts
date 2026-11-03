@@ -40,47 +40,27 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-  const getAccessToken = (req: express.Request): string | null => {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7).trim();
-      if (token && token !== 'null' && token !== 'undefined') return token;
-    } else if (req.cookies?.google_tokens) {
-      try {
-        const tokens = typeof req.cookies.google_tokens === 'string'
-          ? JSON.parse(req.cookies.google_tokens)
-          : req.cookies.google_tokens;
-        if (tokens?.access_token) return tokens.access_token;
-      } catch {
-        // Ignore parse error
-      }
-    }
-    return null;
-  };
-
   const getOAuthClient = (req: express.Request) => {
-    const accessToken = getAccessToken(req);
-    if (!accessToken) {
-      return null;
+    const tokensStr = req.cookies.google_tokens;
+    if (!tokensStr) {
+      throw new Error('Not authenticated with Google');
     }
-
+    const tokens = JSON.parse(tokensStr);
     const client = new OAuth2Client();
-    client.setCredentials({ access_token: accessToken, token_type: 'Bearer' });
+    client.setCredentials(tokens);
     return client;
   };
 
   // Auth Connection Routes
   app.post('/api/storage/connect', (req, res) => {
-    const accessToken = req.body?.accessToken || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7).trim() : null);
+    const { accessToken } = req.body;
     if (!accessToken) {
       return res.status(400).json({ error: 'Access token is required' });
     }
     
-    const expiresIn = Number(req.body?.expiresIn) || 3600;
     const tokens = {
       access_token: accessToken,
-      token_type: 'Bearer',
-      expires_at: Date.now() + (expiresIn - 60) * 1000
+      token_type: 'Bearer'
     };
 
     res.cookie('google_tokens', JSON.stringify(tokens), {
@@ -104,21 +84,8 @@ async function startServer() {
 
   // Storage API Check
   app.get('/api/storage/check', (req, res) => {
-    const hasBearer = !!req.headers.authorization?.startsWith('Bearer ');
-    let hasValidCookie = false;
-    if (req.cookies?.google_tokens) {
-      try {
-        const tokens = typeof req.cookies.google_tokens === 'string'
-          ? JSON.parse(req.cookies.google_tokens)
-          : req.cookies.google_tokens;
-        if (tokens?.access_token) {
-          if (!tokens.expires_at || Date.now() < tokens.expires_at) {
-            hasValidCookie = true;
-          }
-        }
-      } catch {}
-    }
-    res.json({ connected: hasBearer || hasValidCookie });
+    const tokens = req.cookies.google_tokens;
+    res.json({ connected: !!tokens });
   });
 
   // Local File Cache Endpoints (allows any user, including students, to load/save without Drive/Google auth)
@@ -197,118 +164,85 @@ async function startServer() {
   });
 
   app.post('/api/storage/sync', async (req, res) => {
-    const data = req.body;
-
-    // 1. ALWAYS persist state to local disk cache and Firestore FIRST so data is never lost
-    if (data && typeof data === 'object') {
-      try {
-        fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
-        if (db) {
-          await setDoc(doc(db, 'app_state', 'global_state'), {
-            state: data,
-            updatedAt: new Date().toISOString()
-          });
-          console.log('[Dev Server] Global state synced to Firestore during storage save.');
-        }
-      } catch (cacheErr) {
-        console.warn('Failed to update local cache during sync:', cacheErr);
-      }
-    }
-
-    // 2. Check Google OAuth Client
-    const client = getOAuthClient(req);
-    if (!client) {
-      return res.status(401).json({ 
-        error: 'Not authenticated with Google', 
-        unauthenticated: true,
-        savedLocally: true 
-      });
+    const tokensStr = req.cookies.google_tokens;
+    if (!tokensStr) {
+      return res.status(401).json({ error: 'Not authenticated with Google' });
     }
 
     try {
+      const tokens = JSON.parse(tokensStr);
+      const client = getOAuthClient(req);
+      client.setCredentials(tokens);
+      
+      const sheets = google.sheets({ version: 'v4', auth: client });
       const drive = google.drive({ version: 'v3', auth: client });
+
+      // Logic to find or create the database spreadsheet
       const fileName = 'AcademicAtelierData.json';
       const response = await drive.files.list({
         q: `name = '${fileName}' and trashed = false`,
         fields: 'files(id, name)',
       });
 
-      let fileId: string | undefined;
+      let fileId;
       if (response.data.files && response.data.files.length > 0) {
-        fileId = response.data.files[0].id || undefined;
+        fileId = response.data.files[0].id;
       }
 
-      const media = {
-        mimeType: 'application/json',
-        body: JSON.stringify(data),
-      };
-
-      if (fileId) {
+      if (req.method === 'POST') {
+        const data = req.body;
+        
+        // Update local cache and Firestore automatically for student portal fallback
         try {
+          fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+          if (db) {
+            await setDoc(doc(db, 'app_state', 'global_state'), {
+              state: data,
+              updatedAt: new Date().toISOString()
+            });
+            console.log('[Dev Server] Global state synced to Firestore during Google Drive sync.');
+          }
+        } catch (e) {
+          console.error('Failed to update local cache during sync:', e);
+        }
+
+        const media = {
+          mimeType: 'application/json',
+          body: JSON.stringify(data),
+        };
+
+        if (fileId) {
           await drive.files.update({
             fileId: fileId,
             media: media,
           });
-        } catch (updateErr: any) {
-          if (updateErr?.status === 404 || updateErr?.status === 403) {
-            await drive.files.create({
-              requestBody: {
-                name: fileName,
-                mimeType: 'application/json',
-              },
-              media: media,
-            });
-          } else {
-            throw updateErr;
-          }
+        } else {
+          await drive.files.create({
+            requestBody: {
+              name: fileName,
+              mimeType: 'application/json',
+            },
+            media: media,
+          });
         }
-      } else {
-        await drive.files.create({
-          requestBody: {
-            name: fileName,
-            mimeType: 'application/json',
-          },
-          media: media,
-        });
+        res.json({ success: true });
       }
-
-      res.json({ success: true, savedToDrive: true });
-    } catch (error: any) {
-      const isAuthError = 
-        error?.code === 401 || 
-        error?.status === 401 || 
-        error?.response?.status === 401 ||
-        error?.message?.includes('invalid authentication credentials') ||
-        error?.message?.includes('invalid_token') ||
-        error?.message?.includes('Invalid Credentials');
-
-      if (isAuthError) {
-        res.clearCookie('google_tokens', {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'none'
-        });
-        console.warn('[Dev Server] Google Drive sync token expired or unauthorized. Cleared cookie.');
-        return res.status(401).json({ 
-          error: 'Google Drive authentication expired or invalid', 
-          unauthenticated: true,
-          savedLocally: true 
-        });
-      }
-
-      console.warn('Google Drive Sync Warning:', error?.message || error);
-      res.status(500).json({ error: 'Sync to Google Drive failed', savedLocally: true });
+    } catch (error) {
+      console.error('Google Drive Sync Error:', error);
+      res.status(500).json({ error: 'Sync failed' });
     }
   });
 
   app.get('/api/storage/load', async (req, res) => {
-    const client = getOAuthClient(req);
-    if (!client) {
-      return res.json(null);
-    }
+    const tokensStr = req.cookies.google_tokens;
+    if (!tokensStr) return res.status(401).json({ error: 'Not authenticated' });
 
     try {
+      const tokens = JSON.parse(tokensStr);
+      const client = getOAuthClient(req);
+      client.setCredentials(tokens);
       const drive = google.drive({ version: 'v3', auth: client });
+
       const fileName = 'AcademicAtelierData.json';
       const listResponse = await drive.files.list({
         q: `name = '${fileName}' and trashed = false`,
@@ -325,26 +259,8 @@ async function startServer() {
       } else {
         res.json(null); // No file yet
       }
-    } catch (error: any) {
-      const isAuthError = 
-        error?.code === 401 || 
-        error?.status === 401 || 
-        error?.response?.status === 401 ||
-        error?.message?.includes('invalid authentication credentials') ||
-        error?.message?.includes('invalid_token') ||
-        error?.message?.includes('Invalid Credentials');
-
-      if (isAuthError) {
-        res.clearCookie('google_tokens', {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'none'
-        });
-        console.warn('[Dev Server] Google Drive load token expired or unauthorized.');
-        return res.status(401).json({ error: 'Token expired', unauthenticated: true });
-      }
-
-      console.warn('Google Drive Load Warning:', error?.message || error);
+    } catch (error) {
+      console.error('Google Drive Load Error:', error);
       res.status(500).json({ error: 'Load failed' });
     }
   });

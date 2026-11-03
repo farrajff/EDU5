@@ -227,7 +227,7 @@ export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse,
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="p-1.5 text-red-500 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg transition-all duration-150 flex items-center gap-1 text-xs font-bold cursor-pointer"
+                  className="p-1.5 text-red-500 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg transition-all duration-150 flex items-center gap-1 text-xs font-bold"
                   title="تسجيل الخروج"
                 >
                   <LogOut size={13} />
@@ -239,7 +239,7 @@ export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse,
           {isCollapsed && onLogout && (
             <button
               onClick={onLogout}
-              className="absolute -bottom-1 -left-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all border border-slate-800 z-10 scale-90 cursor-pointer"
+              className="absolute -bottom-1 -left-1 p-1 bg-red-650 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all border border-slate-800 z-10 scale-90"
               title="تسجيل الخروج"
             >
               <LogOut size={10} />

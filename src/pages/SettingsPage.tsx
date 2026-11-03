@@ -26,14 +26,11 @@ import {
   Moon,
   Sun,
   PanelRight,
-  PanelBottom,
-  LogOut,
-  User
+  PanelBottom
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { storageService } from '../lib/storageService';
 import { THEME_OPTIONS } from '../lib/themeService';
-import { OAuthOriginModal } from '../components/OAuthOriginModal';
 
 export function SettingsPage() {
   const { state, updateState, syncData, syncInProgress, isConnected, reconnectAndLoad } = useApp();
@@ -55,7 +52,6 @@ export function SettingsPage() {
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isNewYearModalOpen, setIsNewYearModalOpen] = useState(false);
-  const [isOriginHelpOpen, setIsOriginHelpOpen] = useState(false);
   const [archiveSuffix, setArchiveSuffix] = useState('');
   const [checkReport, setCheckReport] = useState<any>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -140,14 +136,9 @@ export function SettingsPage() {
 
   const handleBackup = async () => {
     try {
-      const success = await syncData();
-      if (success) {
-        addLog("تم إجراء نسخة احتياطية ومزامنة كاملة للبيانات على Google Drive.");
-        showToast("تم الانتهاء من حفظ البيانات على جوجل درايف بنجاح! ✓", "success");
-      } else {
-        addLog("تم حفظ البيانات محلياً على الجهاز.");
-        showToast("تم الحفظ محلياً. يرجى ربط حساب Google لمزامنة السحاب.", "info");
-      }
+      await syncData();
+      addLog("تم إجراء نسخة احتياطية يدوية للبيانات.");
+      showToast("تم الانتهاء من النسخ الاحتياطي السحابي بنجاح!", "success");
     } catch (err) {
       showToast("حدث خطأ أثناء الاتصال أو النسخ الاحتياطي السحابي.", "error");
     }
@@ -157,22 +148,11 @@ export function SettingsPage() {
     try {
       await storageService.connect();
       await reconnectAndLoad();
-      addLog("تم ربط النظام بحساب Google Drive وحفظ البيانات بنجاح.");
-      showToast("تم الاتصال بمزود المزامنة جوجل درايف وحفظ البيانات بنجاح! ✓", "success");
-    } catch (err: any) {
-      console.error(err);
-      setIsOriginHelpOpen(true);
-      showToast("تعذر الاتصال بـ Google. يرجى مراجعة نافذة تفعيل الرابط (origin_mismatch).", "error");
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await storageService.disconnect();
-      addLog("تم فصل الاتصال بمزود Google Drive.");
-      showToast("تم إلغاء الربط وتسجيل الخروج من Google بنجاح.", "info");
+      addLog("تم ربط النظام بحساب Google Drive ومطابقة الملفات المشتركة.");
+      showToast("تم الاتصال بمزود المزامنة جوجل درايف بنجاح!", "success");
     } catch (err) {
       console.error(err);
+      showToast("فشل الاتصال بمزود السحابة.", "error");
     }
   };
 
@@ -473,38 +453,17 @@ export function SettingsPage() {
             
             <div className="space-y-2">
               <div 
-                onClick={isConnected ? handleDisconnect : handleConnect}
+                onClick={isConnected ? undefined : handleConnect}
                 className={`bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center justify-between border border-white/10 hover:bg-white/20 transition-all cursor-pointer ${isConnected ? 'opacity-100' : 'opacity-70'}`}
-                title={isConnected ? 'انقر لقطع الاتصال بحساب Google' : 'انقر للربط بحساب Google Drive'}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shrink-0"><Cloud size={16} /></div>
-                  <div>
-                    <span className="font-black text-sm text-white block">
-                      {isConnected ? 'جوجل درايف (متصل ونشط)' : 'ربط جوجل درايف'}
-                    </span>
-                    {isConnected && storageService.getGoogleUser()?.email && (
-                      <span className="text-[10px] text-white/80 block font-mono" dir="ltr">
-                        {storageService.getGoogleUser()?.email}
-                      </span>
-                    )}
-                  </div>
+                  <span className="font-black text-sm text-white">جوجل درايف (نشط)</span>
                 </div>
                 <div className={`w-10 h-5 rounded-full relative flex items-center px-0.5 transition-colors ${isConnected ? 'bg-emerald-500' : 'bg-white/20'}`}>
                   <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isConnected ? 'mr-auto' : 'ml-auto'}`} />
                 </div>
               </div>
-
-              {!isConnected && (
-                <button
-                  type="button"
-                  onClick={() => setIsOriginHelpOpen(true)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/25 hover:bg-amber-500/35 text-amber-100 border border-amber-300/30 text-xs font-bold transition-all cursor-pointer"
-                >
-                  <ShieldCheck size={14} className="text-amber-300" />
-                  <span>حل مشكلة (خطأ 400: origin_mismatch)</span>
-                </button>
-              )}
               
               <div className="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/5 opacity-40 grayscale cursor-not-allowed">
                 <div className="flex items-center gap-3">
@@ -1490,13 +1449,6 @@ export function SettingsPage() {
           </div>
         )}
       </AnimatePresence>
-
-      {/* OAuth Origin Mismatch Help Modal */}
-      <OAuthOriginModal
-        isOpen={isOriginHelpOpen}
-        onClose={() => setIsOriginHelpOpen(false)}
-        onExportJson={handleExportSystem}
-      />
     </div>
   );
 }
