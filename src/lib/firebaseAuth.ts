@@ -29,6 +29,7 @@ const EXPIRES_AT_KEY = 'gdrive_token_expires_at';
 const USER_KEY = 'gdrive_user';
 
 let cachedAccessToken: string | null = null;
+let cachedTokenExpiresAt: number = 0;
 let isSigningIn = false;
 
 export interface GoogleUserInfo {
@@ -87,12 +88,17 @@ export const ensureGoogleScriptLoaded = (): Promise<void> => {
  * Get locally stored active Google OAuth token if not expired
  */
 export const getStoredGoogleToken = (): string | null => {
-  if (cachedAccessToken) return cachedAccessToken;
+  if (cachedAccessToken && cachedTokenExpiresAt && Date.now() < cachedTokenExpiresAt) {
+    return cachedAccessToken;
+  }
 
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const expiresAtStr = localStorage.getItem(EXPIRES_AT_KEY);
-    if (!token) return null;
+    if (!token) {
+      cachedAccessToken = null;
+      return null;
+    }
 
     if (expiresAtStr) {
       const expiresAt = parseInt(expiresAtStr, 10);
@@ -101,9 +107,72 @@ export const getStoredGoogleToken = (): string | null => {
         clearStoredGoogleAuth();
         return null;
       }
+      cachedTokenExpiresAt = expiresAt;
     }
     cachedAccessToken = token;
     return token;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Attempt silent token refresh via GIS if user previously signed in
+ */
+export const refreshGoogleTokenSilently = async (): Promise<string | null> => {
+  const existing = getStoredGoogleToken();
+  if (existing) return existing;
+
+  const user = getStoredGoogleUser();
+  if (!user?.email) return null;
+
+  try {
+    await ensureGoogleScriptLoaded();
+    const clientId = firebaseConfig.oAuthClientId;
+    const google = (window as any).google;
+    if (!clientId || !google?.accounts?.oauth2) return null;
+
+    return await new Promise<string | null>((resolve) => {
+      try {
+        const client = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid',
+          hint: user.email,
+          prompt: '',
+          callback: (tokenResponse: any) => {
+            if (tokenResponse?.access_token) {
+              const token = tokenResponse.access_token;
+              const expiresIn = parseInt(tokenResponse.expires_in, 10) || 3600;
+              const expiresAt = Date.now() + (expiresIn - 60) * 1000;
+
+              cachedAccessToken = token;
+              cachedTokenExpiresAt = expiresAt;
+
+              localStorage.setItem(TOKEN_KEY, token);
+              localStorage.setItem(EXPIRES_AT_KEY, String(expiresAt));
+              localStorage.setItem('gdrive_connected', 'true');
+
+              // Sync with server proxy
+              try {
+                fetch('/api/storage/connect', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ accessToken: token, expiresIn }),
+                }).catch(() => {});
+              } catch {}
+
+              resolve(token);
+            } else {
+              resolve(null);
+            }
+          },
+          error_callback: () => resolve(null)
+        });
+        client.requestAccessToken({ prompt: '' });
+      } catch {
+        resolve(null);
+      }
+    });
   } catch {
     return null;
   }
@@ -127,6 +196,7 @@ export const getStoredGoogleUser = (): GoogleUserInfo | null => {
  */
 export const clearStoredGoogleAuth = () => {
   cachedAccessToken = null;
+  cachedTokenExpiresAt = 0;
   try {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EXPIRES_AT_KEY);

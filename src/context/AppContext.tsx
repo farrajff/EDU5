@@ -154,9 +154,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (isConnected) {
         setSyncInProgress(true);
         try {
-          await storageService.syncToDrive(state);
+          const ok = await storageService.syncToDrive(state);
+          if (!ok) {
+            const stillConnected = await storageService.checkConnection();
+            setIsConnected(stillConnected);
+          }
         } catch (error) {
-          console.error('Auto-sync failed:', error);
+          console.warn('Auto-sync notice:', error);
         } finally {
           setSyncInProgress(false);
         }
@@ -189,7 +193,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 2. Load from Google Drive if authorized
     try {
-      if (isConnected) {
+      const connected = await storageService.checkConnection();
+      setIsConnected(connected);
+      if (connected) {
         const cloudState = await storageService.loadFromDrive();
         if (cloudState) {
           setState(prev => {
@@ -201,7 +207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch (e) {
-      console.error('Google authentication or drive loading failed:', e);
+      console.warn('Google drive loading notice:', e);
     }
   };
 

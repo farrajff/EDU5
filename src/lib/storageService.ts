@@ -9,6 +9,7 @@ import {
   getStoredGoogleToken, 
   getStoredGoogleUser,
   clearStoredGoogleAuth,
+  refreshGoogleTokenSilently,
   GoogleUserInfo
 } from './firebaseAuth';
 
@@ -48,7 +49,10 @@ export const storageService = {
    */
   async checkConnection(): Promise<boolean> {
     // 1. Check local client-side token first
-    const clientToken = getStoredGoogleToken();
+    let clientToken = getStoredGoogleToken();
+    if (!clientToken) {
+      clientToken = await refreshGoogleTokenSilently();
+    }
     if (clientToken) {
       return true;
     }
@@ -82,9 +86,20 @@ export const storageService = {
       `name = '${FILE_NAME}' and trashed = false`
     )}&fields=${encodeURIComponent('files(id, name, modifiedTime)')}`;
 
-    const searchRes = await fetch(searchUrl, {
+    let searchRes = await fetch(searchUrl, {
       headers: { Authorization: `Bearer ${token}` }
     });
+
+    if (searchRes.status === 401) {
+      // Try silent refresh once
+      const refreshed = await refreshGoogleTokenSilently();
+      if (refreshed) {
+        token = refreshed;
+        searchRes = await fetch(searchUrl, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    }
 
     if (searchRes.status === 401) {
       clearStoredGoogleAuth();
@@ -113,48 +128,59 @@ export const storageService = {
         }
       );
 
-      if (!updateRes.ok) {
-        throw new Error(`Google Drive file update failed: ${updateRes.status}`);
+      if (updateRes.ok) {
+        return true;
       }
-      return true;
-    } else {
-      // Create new file with metadata + media using multipart upload
-      const metadata = {
-        name: FILE_NAME,
-        mimeType: 'application/json',
-        description: 'بيانات وكشوف درجات مدرسة الدراسات الإسلامية - حفظ تلقائي',
-      };
 
-      const boundary = '-------314159265358979323846';
-      const delimiter = `\r\n--${boundary}\r\n`;
-      const closeDelim = `\r\n--${boundary}--`;
-
-      const multipartBody =
-        delimiter +
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-        JSON.stringify(metadata) +
-        delimiter +
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-        jsonContent +
-        closeDelim;
-
-      const createRes = await fetch(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': `multipart/related; boundary=${boundary}`,
-          },
-          body: multipartBody,
-        }
-      );
-
-      if (!createRes.ok) {
-        throw new Error(`Google Drive file creation failed: ${createRes.status}`);
+      if (updateRes.status === 401) {
+        clearStoredGoogleAuth();
+        throw new Error('Google access token expired');
       }
-      return true;
+
+      console.warn(`Drive PATCH failed with status ${updateRes.status}, falling back to create...`);
     }
+
+    // Create new file
+    const metadata = {
+      name: FILE_NAME,
+      mimeType: 'application/json',
+      description: 'بيانات وكشوف درجات مدرسة الدراسات الإسلامية - حفظ تلقائي',
+    };
+
+    const boundary = '-------314159265358979323846';
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelim = `\r\n--${boundary}--`;
+
+    const multipartBody =
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      jsonContent +
+      closeDelim;
+
+    const createRes = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body: multipartBody,
+      }
+    );
+
+    if (createRes.status === 401) {
+      clearStoredGoogleAuth();
+      throw new Error('Google access token expired');
+    }
+
+    if (!createRes.ok) {
+      throw new Error(`Google Drive file creation failed: ${createRes.status}`);
+    }
+    return true;
   },
 
   /**
@@ -168,41 +194,58 @@ export const storageService = {
       console.warn('Local storage write warning:', e);
     }
 
-    let synced = false;
-    const token = getStoredGoogleToken();
+    // 2. Always persist to local cache endpoint (and Firestore)
+    this.saveToLocalCache(state).catch(() => {});
 
-    // 2. Direct client-side Google Drive sync
+    let synced = false;
+    let token = getStoredGoogleToken();
+    if (!token) {
+      token = await refreshGoogleTokenSilently();
+    }
+
+    // 3. Direct client-side Google Drive sync
     if (token) {
       try {
         synced = await this.directDriveUpload(token, state);
         if (synced) {
           localStorage.setItem('gdrive_last_synced', new Date().toISOString());
           console.log('[Storage Service] Direct client-side Google Drive sync succeeded.');
+          return true;
         }
-      } catch (err) {
-        console.warn('[Storage Service] Direct Drive upload encountered error:', err);
+      } catch (err: any) {
+        console.warn('[Storage Service] Direct Drive upload encountered error:', err?.message || err);
+        if (err?.message?.includes('expired') || err?.message?.includes('401')) {
+          clearStoredGoogleAuth();
+          return false;
+        }
       }
     }
 
-    // 3. Fallback/Parallel server proxy sync
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+    // 4. Server proxy sync (only attempt if token is available)
+    if (token) {
+      try {
+        const response = await fetch('/api/storage/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(state),
+        });
 
-      const response = await fetch('/api/storage/sync', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(state),
-      });
-      if (response.ok) {
-        synced = true;
+        if (response.status === 401) {
+          clearStoredGoogleAuth();
+          return false;
+        }
+
+        if (response.ok) {
+          synced = true;
+          localStorage.setItem('gdrive_last_synced', new Date().toISOString());
+        }
+      } catch {
+        // Backend not running (expected on GitHub Pages)
       }
-    } catch {
-      // Backend not running (expected on GitHub Pages)
     }
-
-    // 4. Update local cache endpoint if running
-    this.saveToLocalCache(state).catch(() => {});
 
     return synced;
   },
@@ -260,7 +303,10 @@ export const storageService = {
    * Load state directly from Google Drive
    */
   async loadFromDrive(): Promise<AppState | null> {
-    const token = getStoredGoogleToken();
+    let token = getStoredGoogleToken();
+    if (!token) {
+      token = await refreshGoogleTokenSilently();
+    }
 
     // 1. Direct client-side fetch from Google Drive REST API
     if (token) {
@@ -283,6 +329,10 @@ export const storageService = {
                 headers: { Authorization: `Bearer ${token}` }
               }
             );
+            if (loadRes.status === 401) {
+              clearStoredGoogleAuth();
+              return null;
+            }
             if (loadRes.ok) {
               const cloudState = await loadRes.json();
               console.log('[Storage Service] Successfully loaded state from Google Drive file:', fileId);
@@ -291,23 +341,29 @@ export const storageService = {
           }
         } else if (searchRes.status === 401) {
           clearStoredGoogleAuth();
+          return null;
         }
       } catch (err) {
         console.warn('[Storage Service] Direct Google Drive load error:', err);
       }
     }
 
-    // 2. Fallback to backend load endpoint
-    try {
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await fetch('/api/storage/load', { headers });
-      if (response.ok) {
-        return await response.json();
+    // 2. Server proxy load only if token is available
+    if (token) {
+      try {
+        const response = await fetch('/api/storage/load', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.status === 401) {
+          clearStoredGoogleAuth();
+          return null;
+        }
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch {
+        // Backend not running
       }
-    } catch {
-      // Backend not running
     }
 
     return null;
