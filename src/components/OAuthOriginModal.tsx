@@ -16,7 +16,8 @@ export const OAuthOriginModal: React.FC<OAuthOriginModalProps> = ({ isOpen, onCl
   const targetOrigin = detectedOrigin.includes('github.io') ? detectedOrigin : 'https://farrajff.github.io';
   const currentOrigin = targetOrigin;
   const projectId = 'gen-lang-client-0270287581';
-  const consoleUrl = `https://console.cloud.google.com/apis/credentials?project=${projectId}`;
+  const clientId = '422321380604-2h9tbrum76sc99mn3sja5t7eb16bodmc.apps.googleusercontent.com';
+  const consoleUrl = `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}?project=${projectId}`;
   const firebaseAuthUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
 
   const handleCopy = () => {
