@@ -17,11 +17,35 @@ import { ReportsPage } from './pages/ReportsPage';
 import { NoorPage } from './pages/NoorPage';
 import { StudentPortalPage } from './pages/StudentPortalPage';
 import { LoginGate } from './pages/LoginGate';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { BottomNav } from './components/BottomNav';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
 
-function AppContent() {
+type PublicLegalPage = 'privacy' | 'terms' | null;
+
+function getPublicLegalPageFromUrl(): PublicLegalPage {
+  const params = new URLSearchParams(window.location.search);
+  const pageParam = params.get('page');
+  const hash = window.location.hash;
+  const path = window.location.pathname.toLowerCase();
+
+  if (pageParam === 'privacy' || params.has('privacy') || hash === '#privacy' || path.endsWith('/privacy') || path.endsWith('/privacy-policy')) {
+    return 'privacy';
+  }
+  if (pageParam === 'terms' || params.has('terms') || hash === '#terms' || path.endsWith('/terms') || path.endsWith('/terms-of-service')) {
+    return 'terms';
+  }
+  return null;
+}
+
+interface AppContentProps {
+  onOpenPrivacy: () => void;
+  onOpenTerms: () => void;
+}
+
+function AppContent({ onOpenPrivacy, onOpenTerms }: AppContentProps) {
   const { state, updateState } = useApp();
   const isBottomBarActive = state.navigationLayout === 'bottom';
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -124,7 +148,12 @@ function AppContent() {
             transition={{ duration: 0.3 }}
             className="min-h-full"
           >
-            <StudentPortalPage onBackToTeacher={exitStudentMode} showBackToTeacher={isTeacherSession} />
+            <StudentPortalPage
+              onBackToTeacher={exitStudentMode}
+              showBackToTeacher={isTeacherSession}
+              onOpenPrivacy={onOpenPrivacy}
+              onOpenTerms={onOpenTerms}
+            />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -156,9 +185,15 @@ function AppContent() {
       case 'leaves': return <LeavesPage />;
       case 'reports': return <ReportsPage />;
       case 'classes': return <ClassManagementPage />;
-      case 'settings': return <SettingsPage />;
+      case 'settings': return <SettingsPage onOpenPrivacy={onOpenPrivacy} onOpenTerms={onOpenTerms} />;
       default: return null;
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('isAppAuthenticated');
+    sessionStorage.removeItem('authUser');
+    window.location.reload();
   };
 
   return (
@@ -174,10 +209,9 @@ function AppContent() {
             onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
             isMobile={false}
             onEnterStudentPortal={enterStudentMode}
-            onLogout={() => {
-              sessionStorage.removeItem('isAppAuthenticated');
-              window.location.reload();
-            }}
+            onOpenPrivacy={onOpenPrivacy}
+            onOpenTerms={onOpenTerms}
+            onLogout={handleLogout}
           />
         )}
 
@@ -194,10 +228,9 @@ function AppContent() {
               onToggleCollapse={() => setIsMobileDrawerOpen(false)}
               isMobile={true}
               onEnterStudentPortal={enterStudentMode}
-              onLogout={() => {
-                sessionStorage.removeItem('isAppAuthenticated');
-                window.location.reload();
-              }}
+              onOpenPrivacy={onOpenPrivacy}
+              onOpenTerms={onOpenTerms}
+              onLogout={handleLogout}
             />
             <div 
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 transition-opacity"
@@ -284,6 +317,33 @@ export default function App() {
            window.location.hash === '#student';
   });
 
+  const [publicLegalPage, setPublicLegalPage] = useState<PublicLegalPage>(() => getPublicLegalPageFromUrl());
+
+  const openPublicLegalPage = (page: 'privacy' | 'terms') => {
+    setPublicLegalPage(page);
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    if (url.hash === '#privacy' || url.hash === '#terms') {
+      url.hash = '';
+    }
+    window.history.pushState({}, '', url.toString());
+  };
+
+  const closePublicLegalPage = () => {
+    setPublicLegalPage(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('page');
+    url.searchParams.delete('privacy');
+    url.searchParams.delete('terms');
+    if (url.hash === '#privacy' || url.hash === '#terms') {
+      url.hash = '';
+    }
+    if (url.pathname.toLowerCase().endsWith('/privacy') || url.pathname.toLowerCase().endsWith('/terms')) {
+      url.pathname = '/';
+    }
+    window.history.pushState({}, '', url.toString());
+  };
+
   useEffect(() => {
     const handleUrlChange = () => {
       const params = new URLSearchParams(window.location.search);
@@ -291,6 +351,7 @@ export default function App() {
                         params.get('role') === 'student' || 
                         window.location.hash === '#student';
       setIsStudentUrl(isStudent);
+      setPublicLegalPage(getPublicLegalPageFromUrl());
     };
 
     window.addEventListener('popstate', handleUrlChange);
@@ -304,11 +365,32 @@ export default function App() {
   return (
     <AppProvider>
       <div className="fixed inset-0 w-full h-full h-[100dvh] overflow-hidden bg-background">
-        {isAuthenticated || isStudentUrl ? (
-          <AppContent />
+        {publicLegalPage === 'privacy' ? (
+          <div className="h-full w-full overflow-y-auto">
+            <PrivacyPolicyPage
+              onBack={closePublicLegalPage}
+              onOpenTerms={() => openPublicLegalPage('terms')}
+            />
+          </div>
+        ) : publicLegalPage === 'terms' ? (
+          <div className="h-full w-full overflow-y-auto">
+            <TermsOfServicePage
+              onBack={closePublicLegalPage}
+              onOpenPrivacy={() => openPublicLegalPage('privacy')}
+            />
+          </div>
+        ) : isAuthenticated || isStudentUrl ? (
+          <AppContent
+            onOpenPrivacy={() => openPublicLegalPage('privacy')}
+            onOpenTerms={() => openPublicLegalPage('terms')}
+          />
         ) : (
           <div className="h-full w-full overflow-y-auto">
-            <LoginGate onSuccess={() => setIsAuthenticated(true)} />
+            <LoginGate
+              onSuccess={() => setIsAuthenticated(true)}
+              onOpenPrivacy={() => openPublicLegalPage('privacy')}
+              onOpenTerms={() => openPublicLegalPage('terms')}
+            />
           </div>
         )}
       </div>

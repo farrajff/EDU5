@@ -9,6 +9,8 @@ interface AppContextType {
   syncInProgress: boolean;
   isConnected: boolean;
   reconnectAndLoad: () => Promise<void>;
+  connectGoogle: () => Promise<boolean>;
+  disconnectGoogle: () => Promise<void>;
 }
 
 const defaultState: AppState = {
@@ -152,9 +154,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (isConnected) {
         setSyncInProgress(true);
         try {
-          await storageService.syncToDrive(state);
+          const ok = await storageService.syncToDrive(state);
+          if (!ok) {
+            const stillConnected = await storageService.checkConnection();
+            setIsConnected(stillConnected);
+          }
         } catch (error) {
-          console.error('Auto-sync failed:', error);
+          console.warn('Auto-sync notice:', error);
         } finally {
           setSyncInProgress(false);
         }
@@ -187,7 +193,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 2. Load from Google Drive if authorized
     try {
-      if (isConnected) {
+      const connected = await storageService.checkConnection();
+      setIsConnected(connected);
+      if (connected) {
         const cloudState = await storageService.loadFromDrive();
         if (cloudState) {
           setState(prev => {
@@ -199,7 +207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch (e) {
-      console.error('Google authentication or drive loading failed:', e);
+      console.warn('Google drive loading notice:', e);
     }
   };
 
@@ -230,16 +238,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const syncData = async (): Promise<boolean> => {
-    if (!isConnected) {
-      await checkConnection(); // Try one last time
-      if (!isConnected) return false;
+  const connectGoogle = async (): Promise<boolean> => {
+    try {
+      await storageService.connect();
+      await reconnectAndLoad();
+      return true;
+    } catch (e) {
+      console.error('Connection failed:', e);
+      return false;
     }
-    
+  };
+
+  const disconnectGoogle = async () => {
+    await storageService.disconnect();
+    setIsConnected(false);
+  };
+
+  const syncData = async (): Promise<boolean> => {
     setSyncInProgress(true);
     try {
-      const success = await storageService.syncToDrive(state);
-      return success;
+      // 1. Always save locally immediately
+      await storageService.saveToLocalCache(state);
+
+      // 2. Check Google connection
+      let connected = await storageService.checkConnection();
+      if (!connected) {
+        // If user manually initiated sync, offer to connect
+        try {
+          await storageService.connect();
+          connected = await storageService.checkConnection();
+          setIsConnected(connected);
+        } catch (connErr) {
+          console.warn('Google connect prompt was dismissed or failed:', connErr);
+          return false;
+        }
+      }
+
+      if (connected) {
+        const success = await storageService.syncToDrive(state);
+        setIsConnected(await storageService.checkConnection());
+        return success;
+      }
+      return false;
     } catch (error) {
       console.error('Manual sync failed:', error);
       return false;
@@ -249,7 +289,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ state, updateState, syncData, syncInProgress, isConnected, reconnectAndLoad }}>
+    <AppContext.Provider value={{ 
+      state, 
+      updateState, 
+      syncData, 
+      syncInProgress, 
+      isConnected, 
+      reconnectAndLoad,
+      connectGoogle,
+      disconnectGoogle
+    }}>
       {children}
     </AppContext.Provider>
   );

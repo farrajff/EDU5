@@ -26,13 +26,24 @@ import {
   Moon,
   Sun,
   PanelRight,
-  PanelBottom
+  PanelBottom,
+  LogOut,
+  User,
+  Scale,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { storageService } from '../lib/storageService';
 import { THEME_OPTIONS } from '../lib/themeService';
+import { OAuthOriginModal } from '../components/OAuthOriginModal';
 
-export function SettingsPage() {
+interface SettingsPageProps {
+  onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
+}
+
+export function SettingsPage({ onOpenPrivacy, onOpenTerms }: SettingsPageProps) {
   const { state, updateState, syncData, syncInProgress, isConnected, reconnectAndLoad } = useApp();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   
@@ -52,6 +63,7 @@ export function SettingsPage() {
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isNewYearModalOpen, setIsNewYearModalOpen] = useState(false);
+  const [isOriginHelpOpen, setIsOriginHelpOpen] = useState(false);
   const [archiveSuffix, setArchiveSuffix] = useState('');
   const [checkReport, setCheckReport] = useState<any>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -136,9 +148,14 @@ export function SettingsPage() {
 
   const handleBackup = async () => {
     try {
-      await syncData();
-      addLog("تم إجراء نسخة احتياطية يدوية للبيانات.");
-      showToast("تم الانتهاء من النسخ الاحتياطي السحابي بنجاح!", "success");
+      const success = await syncData();
+      if (success) {
+        addLog("تم إجراء نسخة احتياطية ومزامنة كاملة للبيانات على Google Drive.");
+        showToast("تم الانتهاء من حفظ البيانات على جوجل درايف بنجاح! ✓", "success");
+      } else {
+        addLog("تم حفظ البيانات محلياً على الجهاز.");
+        showToast("تم الحفظ محلياً. يرجى ربط حساب Google لمزامنة السحاب.", "info");
+      }
     } catch (err) {
       showToast("حدث خطأ أثناء الاتصال أو النسخ الاحتياطي السحابي.", "error");
     }
@@ -148,11 +165,22 @@ export function SettingsPage() {
     try {
       await storageService.connect();
       await reconnectAndLoad();
-      addLog("تم ربط النظام بحساب Google Drive ومطابقة الملفات المشتركة.");
-      showToast("تم الاتصال بمزود المزامنة جوجل درايف بنجاح!", "success");
+      addLog("تم ربط النظام بحساب Google Drive وحفظ البيانات بنجاح.");
+      showToast("تم الاتصال بمزود المزامنة جوجل درايف وحفظ البيانات بنجاح! ✓", "success");
+    } catch (err: any) {
+      console.error(err);
+      setIsOriginHelpOpen(true);
+      showToast("تعذر الاتصال بـ Google. يرجى مراجعة نافذة تفعيل الرابط (origin_mismatch).", "error");
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await storageService.disconnect();
+      addLog("تم فصل الاتصال بمزود Google Drive.");
+      showToast("تم إلغاء الربط وتسجيل الخروج من Google بنجاح.", "info");
     } catch (err) {
       console.error(err);
-      showToast("فشل الاتصال بمزود السحابة.", "error");
     }
   };
 
@@ -453,17 +481,38 @@ export function SettingsPage() {
             
             <div className="space-y-2">
               <div 
-                onClick={isConnected ? undefined : handleConnect}
+                onClick={isConnected ? handleDisconnect : handleConnect}
                 className={`bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center justify-between border border-white/10 hover:bg-white/20 transition-all cursor-pointer ${isConnected ? 'opacity-100' : 'opacity-70'}`}
+                title={isConnected ? 'انقر لقطع الاتصال بحساب Google' : 'انقر للربط بحساب Google Drive'}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shrink-0"><Cloud size={16} /></div>
-                  <span className="font-black text-sm text-white">جوجل درايف (نشط)</span>
+                  <div>
+                    <span className="font-black text-sm text-white block">
+                      {isConnected ? 'جوجل درايف (متصل ونشط)' : 'ربط جوجل درايف'}
+                    </span>
+                    {isConnected && storageService.getGoogleUser()?.email && (
+                      <span className="text-[10px] text-white/80 block font-mono" dir="ltr">
+                        {storageService.getGoogleUser()?.email}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className={`w-10 h-5 rounded-full relative flex items-center px-0.5 transition-colors ${isConnected ? 'bg-emerald-500' : 'bg-white/20'}`}>
                   <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isConnected ? 'mr-auto' : 'ml-auto'}`} />
                 </div>
               </div>
+
+              {!isConnected && (
+                <button
+                  type="button"
+                  onClick={() => setIsOriginHelpOpen(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/25 hover:bg-amber-500/35 text-amber-100 border border-amber-300/30 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <ShieldCheck size={14} className="text-amber-300" />
+                  <span>حل مشكلة (خطأ 400: origin_mismatch)</span>
+                </button>
+              )}
               
               <div className="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/5 opacity-40 grayscale cursor-not-allowed">
                 <div className="flex items-center gap-3">
@@ -1144,6 +1193,121 @@ export function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Public Legal Documents (Privacy Policy & Terms of Service) */}
+        <div className="col-span-12 bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-150">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-indigo-600">
+                <Scale size={20} strokeWidth={2} />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-slate-850">الصفحات القانونية والروابط العامة</h2>
+                <p className="text-xs sm:text-sm font-semibold text-slate-450 mt-0.5">
+                  صفحات عامة متاحة للجميع دون تسجيل دخول لاستعراض سياسة الخصوصية وشروط الخدمة أو نسخ روابطها
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Public Privacy Policy Card */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 bg-slate-50/60 flex flex-col justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-850">صفحة سياسة الخصوصية العامة</h3>
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-1">
+                    توضح آلية حفظ بيانات الطلاب، صلاحية Google Drive المحدودة، وحقوق الخصوصية والحذف.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenPrivacy) {
+                      onOpenPrivacy();
+                    } else {
+                      window.location.search = '?page=privacy';
+                    }
+                  }}
+                  className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ExternalLink size={13} />
+                  <span>فتح الصفحة العامة</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = `${window.location.origin}${window.location.pathname}?page=privacy`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      showToast('تم نسخ رابط سياسة الخصوصية العامة بنجاح!');
+                    } catch {
+                      showToast('تعذر النسخ التلقائي، يمكنك فتح الصفحة ونسخ الرابط.');
+                    }
+                  }}
+                  className="py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Copy size={13} />
+                  <span>نسخ الرابط</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Public Terms of Service Card */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 bg-slate-50/60 flex flex-col justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Scale size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-850">صفحة شروط الخدمة العامة</h3>
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-1">
+                    توضح ضوابط الاستخدام التعليمي، مسؤوليات الحساب، المزامنة السحابية، والنسخ الاحتياطي.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenTerms) {
+                      onOpenTerms();
+                    } else {
+                      window.location.search = '?page=terms';
+                    }
+                  }}
+                  className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ExternalLink size={13} />
+                  <span>فتح الصفحة العامة</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = `${window.location.origin}${window.location.pathname}?page=terms`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      showToast('تم نسخ رابط شروط الخدمة العامة بنجاح!');
+                    } catch {
+                      showToast('تعذر النسخ التلقائي، يمكنك فتح الصفحة ونسخ الرابط.');
+                    }
+                  }}
+                  className="py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Copy size={13} />
+                  <span>نسخ الرابط</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* MODAL 1: Historical Logs Timeline */}
@@ -1449,6 +1613,13 @@ export function SettingsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* OAuth Origin Mismatch Help Modal */}
+      <OAuthOriginModal
+        isOpen={isOriginHelpOpen}
+        onClose={() => setIsOriginHelpOpen(false)}
+        onExportJson={handleExportSystem}
+      />
     </div>
   );
 }

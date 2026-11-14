@@ -1,4 +1,4 @@
-import { LucideIcon, LayoutDashboard, Star, CalendarDays, ClipboardList, Settings, GraduationCap, Users, Menu, ChevronRight, FileText, LogOut, Award, X } from 'lucide-react';
+import { LucideIcon, LayoutDashboard, Star, CalendarDays, ClipboardList, Settings, GraduationCap, Users, Menu, ChevronRight, FileText, LogOut, Award, X, ShieldCheck, Scale } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SidebarItem {
@@ -25,10 +25,12 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   isMobile?: boolean;
   onEnterStudentPortal?: () => void;
+  onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
   onLogout?: () => void;
 }
 
-export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse, isMobile, onEnterStudentPortal, onLogout }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse, isMobile, onEnterStudentPortal, onOpenPrivacy, onOpenTerms, onLogout }: SidebarProps) {
   return (
     <aside 
       className={`print:hidden fixed right-0 top-0 h-full flex flex-col py-6 z-50 overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out shadow-2xl ${
@@ -200,6 +202,38 @@ export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse,
           <Settings size={18} strokeWidth={1.5} style={activeTab === 'settings' ? { color: 'var(--theme-sidebar-subtext, #818cf8)' } : undefined} />
           {!isCollapsed && <span className="text-sm font-medium">الإعدادات</span>}
         </button>
+
+        {!isCollapsed && (onOpenPrivacy || onOpenTerms) && (
+          <div className="flex items-center justify-center gap-2.5 text-[11px] font-bold text-slate-400 pt-1">
+            {onOpenPrivacy && (
+              <a
+                href="?page=privacy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onOpenPrivacy();
+                }}
+                className="inline-flex items-center gap-1 hover:text-white transition-colors"
+              >
+                <ShieldCheck size={12} />
+                <span>الخصوصية</span>
+              </a>
+            )}
+            {onOpenPrivacy && onOpenTerms && <span className="opacity-40">•</span>}
+            {onOpenTerms && (
+              <a
+                href="?page=terms"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onOpenTerms();
+                }}
+                className="inline-flex items-center gap-1 hover:text-white transition-colors"
+              >
+                <Scale size={12} />
+                <span>شروط الخدمة</span>
+              </a>
+            )}
+          </div>
+        )}
         
         <div 
           className={`rounded-xl p-3 flex items-center gap-3 border transition-all ${isCollapsed ? 'p-1.5 rounded-full' : 'w-full'} relative`}
@@ -227,7 +261,7 @@ export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse,
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="p-1.5 text-red-500 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg transition-all duration-150 flex items-center gap-1 text-xs font-bold"
+                  className="p-1.5 text-red-500 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg transition-all duration-150 flex items-center gap-1 text-xs font-bold cursor-pointer"
                   title="تسجيل الخروج"
                 >
                   <LogOut size={13} />
@@ -239,7 +273,7 @@ export function Sidebar({ activeTab, onTabChange, isCollapsed, onToggleCollapse,
           {isCollapsed && onLogout && (
             <button
               onClick={onLogout}
-              className="absolute -bottom-1 -left-1 p-1 bg-red-650 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all border border-slate-800 z-10 scale-90"
+              className="absolute -bottom-1 -left-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all border border-slate-800 z-10 scale-90 cursor-pointer"
               title="تسجيل الخروج"
             >
               <LogOut size={10} />

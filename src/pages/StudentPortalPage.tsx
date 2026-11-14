@@ -47,9 +47,11 @@ function normalizeArabic(str: string): string {
 interface StudentPortalPageProps {
   onBackToTeacher: () => void;
   showBackToTeacher?: boolean;
+  onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
 }
 
-export function StudentPortalPage({ onBackToTeacher, showBackToTeacher = false }: StudentPortalPageProps) {
+export function StudentPortalPage({ onBackToTeacher, showBackToTeacher = false, onOpenPrivacy, onOpenTerms }: StudentPortalPageProps) {
   const { state, updateState } = useApp();
   const students = [...(state.students || [])].sort((a: any, b: any) => {
     const nameA = a.name || '';
@@ -1614,8 +1616,35 @@ export function StudentPortalPage({ onBackToTeacher, showBackToTeacher = false }
       </div>
 
       {/* Floating Soft footer */}
-      <footer className="mt-20 border-t border-slate-200 text-center py-6 text-xs font-bold text-slate-450 tracking-wider">
-        © نظام إدارة الدراسات الإسلامية والقرآن الكريم • جميع الحقوق محفوظة
+      <footer className="mt-20 border-t border-slate-200 text-center py-6 px-4 text-xs font-bold text-slate-450 tracking-wider space-y-2.5">
+        <p>© نظام إدارة الدراسات الإسلامية والقرآن الكريم • جميع الحقوق محفوظة</p>
+        <div className="flex items-center justify-center gap-3 text-slate-500">
+          <a
+            href="?page=privacy"
+            onClick={(e) => {
+              if (onOpenPrivacy) {
+                e.preventDefault();
+                onOpenPrivacy();
+              }
+            }}
+            className="hover:text-indigo-600 transition-colors hover:underline"
+          >
+            سياسة الخصوصية العامة
+          </a>
+          <span className="text-slate-300">•</span>
+          <a
+            href="?page=terms"
+            onClick={(e) => {
+              if (onOpenTerms) {
+                e.preventDefault();
+                onOpenTerms();
+              }
+            }}
+            className="hover:text-indigo-600 transition-colors hover:underline"
+          >
+            شروط الخدمة العامة
+          </a>
+        </div>
       </footer>
     </div>
   );
