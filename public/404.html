@@ -1,19 +1,56 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>جاري التحويل...</title>
     <script type="text/javascript">
-      // GitHub Pages SPA router redirect
-      var l = window.location;
-      var repoName = l.pathname.split('/')[1] || '';
-      var target = l.protocol + '//' + l.host + (repoName ? '/' + repoName : '') + '/';
-      if (l.search) target += l.search;
-      if (l.hash) target += l.hash;
-      window.location.replace(target);
+      (function () {
+        var l = window.location;
+        var segments = l.pathname.split('/').filter(Boolean);
+        var knownRoutes = [
+          'privacy',
+          'privacy-policy',
+          'privacy.html',
+          'terms',
+          'terms-of-service',
+          'terms.html',
+          'student',
+          'portal'
+        ];
+
+        var lastSeg = segments.length > 0 ? segments[segments.length - 1].toLowerCase() : '';
+        var isGithubPages = l.hostname.toLowerCase().endsWith('.github.io');
+        var repoName = '';
+        if (isGithubPages && segments.length > 0 && knownRoutes.indexOf(segments[0].toLowerCase()) === -1) {
+          repoName = segments[0];
+        }
+
+        var params = new URLSearchParams(l.search);
+        if (lastSeg === 'privacy' || lastSeg === 'privacy-policy' || lastSeg === 'privacy.html') {
+          params.set('page', 'privacy');
+        } else if (lastSeg === 'terms' || lastSeg === 'terms-of-service' || lastSeg === 'terms.html') {
+          params.set('page', 'terms');
+        } else if (lastSeg === 'student' || lastSeg === 'portal') {
+          params.set('portal', 'student');
+        }
+
+        var query = params.toString();
+        var target =
+          l.protocol +
+          '//' +
+          l.host +
+          (repoName ? '/' + repoName : '') +
+          '/' +
+          (query ? '?' + query : '') +
+          (l.hash || '');
+
+        window.location.replace(target);
+      })();
     </script>
   </head>
   <body>
-    <p style="font-family: sans-serif; text-align: center; margin-top: 50px;">جاري توجيهك إلى النظام...</p>
+    <p style="font-family: system-ui, sans-serif; text-align: center; margin-top: 50px;">
+      جاري توجيهك إلى النظام...
+    </p>
   </body>
 </html>

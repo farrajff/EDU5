@@ -22,23 +22,7 @@ import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { BottomNav } from './components/BottomNav';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
-
-type PublicLegalPage = 'privacy' | 'terms' | null;
-
-function getPublicLegalPageFromUrl(): PublicLegalPage {
-  const params = new URLSearchParams(window.location.search);
-  const pageParam = params.get('page');
-  const hash = window.location.hash;
-  const path = window.location.pathname.toLowerCase();
-
-  if (pageParam === 'privacy' || params.has('privacy') || hash === '#privacy' || path.endsWith('/privacy') || path.endsWith('/privacy-policy')) {
-    return 'privacy';
-  }
-  if (pageParam === 'terms' || params.has('terms') || hash === '#terms' || path.endsWith('/terms') || path.endsWith('/terms-of-service')) {
-    return 'terms';
-  }
-  return null;
-}
+import { getBasePathname, getPublicLegalPageFromUrl, PublicLegalPage } from './lib/publicRoutes';
 
 interface AppContentProps {
   onOpenPrivacy: () => void;
@@ -275,6 +259,34 @@ function AppContent({ onOpenPrivacy, onOpenTerms }: AppContentProps) {
                   {renderContent()}
                 </motion.div>
               </AnimatePresence>
+
+              {/* Public Legal Links Footer (Always accessible in Sidebar & Bottom Bar layouts) */}
+              <footer className="mt-10 pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-[11px] font-bold text-slate-400 print:hidden">
+                <span>© {new Date().getFullYear()} نظام إدارة الدراسات الإسلامية</span>
+                <div className="flex items-center gap-3">
+                  <a
+                    href="?page=privacy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onOpenPrivacy();
+                    }}
+                    className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    سياسة الخصوصية العامة
+                  </a>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <a
+                    href="?page=terms"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onOpenTerms();
+                    }}
+                    className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    شروط الخدمة العامة
+                  </a>
+                </div>
+              </footer>
             </div>
           </main>
         </div>
@@ -338,9 +350,7 @@ export default function App() {
     if (url.hash === '#privacy' || url.hash === '#terms') {
       url.hash = '';
     }
-    if (url.pathname.toLowerCase().endsWith('/privacy') || url.pathname.toLowerCase().endsWith('/terms')) {
-      url.pathname = '/';
-    }
+    url.pathname = getBasePathname(url.pathname);
     window.history.pushState({}, '', url.toString());
   };
 

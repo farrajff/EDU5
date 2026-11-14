@@ -1,5 +1,6 @@
 import { Scale, ArrowRight, Copy, Check, ShieldCheck, BookOpen, Cloud, AlertCircle, RefreshCw, Globe } from 'lucide-react';
 import { useState } from 'react';
+import { getPublicLegalUrl } from '../lib/publicRoutes';
 
 interface TermsOfServicePageProps {
   onBack: () => void;
@@ -9,10 +10,7 @@ interface TermsOfServicePageProps {
 export function TermsOfServicePage({ onBack, onOpenPrivacy }: TermsOfServicePageProps) {
   const [copied, setCopied] = useState(false);
 
-  const publicUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?page=terms`
-      : '';
+  const publicUrl = getPublicLegalUrl('terms');
 
   const handleCopyUrl = async () => {
     if (!publicUrl) return;

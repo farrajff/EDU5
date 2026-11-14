@@ -37,6 +37,7 @@ import { useApp } from '../context/AppContext';
 import { storageService } from '../lib/storageService';
 import { THEME_OPTIONS } from '../lib/themeService';
 import { OAuthOriginModal } from '../components/OAuthOriginModal';
+import { getPublicLegalUrl } from '../lib/publicRoutes';
 
 interface SettingsPageProps {
   onOpenPrivacy?: () => void;
@@ -1243,7 +1244,7 @@ export function SettingsPage({ onOpenPrivacy, onOpenTerms }: SettingsPageProps) 
                 <button
                   type="button"
                   onClick={async () => {
-                    const url = `${window.location.origin}${window.location.pathname}?page=privacy`;
+                    const url = getPublicLegalUrl('privacy');
                     try {
                       await navigator.clipboard.writeText(url);
                       showToast('تم نسخ رابط سياسة الخصوصية العامة بنجاح!');
@@ -1291,7 +1292,7 @@ export function SettingsPage({ onOpenPrivacy, onOpenTerms }: SettingsPageProps) 
                 <button
                   type="button"
                   onClick={async () => {
-                    const url = `${window.location.origin}${window.location.pathname}?page=terms`;
+                    const url = getPublicLegalUrl('terms');
                     try {
                       await navigator.clipboard.writeText(url);
                       showToast('تم نسخ رابط شروط الخدمة العامة بنجاح!');

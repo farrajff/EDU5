@@ -1,5 +1,6 @@
 import { ShieldCheck, ArrowRight, Copy, Check, FileText, Lock, Database, Cloud, UserCheck, Mail, Globe } from 'lucide-react';
 import { useState } from 'react';
+import { getPublicLegalUrl } from '../lib/publicRoutes';
 
 interface PrivacyPolicyPageProps {
   onBack: () => void;
@@ -9,10 +10,7 @@ interface PrivacyPolicyPageProps {
 export function PrivacyPolicyPage({ onBack, onOpenTerms }: PrivacyPolicyPageProps) {
   const [copied, setCopied] = useState(false);
 
-  const publicUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?page=privacy`
-      : '';
+  const publicUrl = getPublicLegalUrl('privacy');
 
   const handleCopyUrl = async () => {
     if (!publicUrl) return;

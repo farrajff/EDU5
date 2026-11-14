@@ -314,8 +314,8 @@ export function LoginGate({ onSuccess, onOpenPrivacy, onOpenTerms }: LoginGatePr
               )}
             </AnimatePresence>
 
-            {/* Direct Student Portal Link */}
-            <div className="pt-2 border-t border-slate-100">
+            {/* Direct Student Portal Link & Public Legal Links */}
+            <div className="pt-2.5 border-t border-slate-100 space-y-2.5">
               <a
                 href="?portal=student"
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors py-1 px-3 rounded-lg hover:bg-indigo-50/60"
@@ -323,47 +323,46 @@ export function LoginGate({ onSuccess, onOpenPrivacy, onOpenTerms }: LoginGatePr
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>هل أنت طالب؟ الانتقال مباشرة إلى بوابة الطلاب الذكية</span>
               </a>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1.5 border-t border-slate-100/80 text-xs font-bold text-slate-600">
+                <a
+                  href="?page=privacy"
+                  onClick={(e) => {
+                    if (onOpenPrivacy) {
+                      e.preventDefault();
+                      onOpenPrivacy();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 transition-colors"
+                >
+                  <ShieldCheck size={14} className="text-indigo-600" />
+                  <span>سياسة الخصوصية العامة</span>
+                </a>
+                <a
+                  href="?page=terms"
+                  onClick={(e) => {
+                    if (onOpenTerms) {
+                      e.preventDefault();
+                      onOpenTerms();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 transition-colors"
+                >
+                  <Scale size={14} className="text-indigo-600" />
+                  <span>شروط الخدمة العامة</span>
+                </a>
+              </div>
             </div>
 
           </div>
         </motion.div>
 
-        {/* Footer Brand watermark & Public Legal Links */}
-        <div className="mt-8 flex flex-col items-center gap-3">
+        {/* Footer Brand watermark */}
+        <div className="mt-6 flex flex-col items-center gap-2">
           <p className="text-slate-400 text-xs font-bold tracking-wider uppercase text-center flex items-center gap-1.5 opacity-80">
             <KeyRound className="w-3.5 h-3.5 text-indigo-500" strokeWidth={2.5} />
             بوابة الوصول محميّة برمز أمان المعلم
           </p>
-
-          <div className="flex items-center justify-center gap-3 text-xs font-bold text-slate-500">
-            <a
-              href="?page=privacy"
-              onClick={(e) => {
-                if (onOpenPrivacy) {
-                  e.preventDefault();
-                  onOpenPrivacy();
-                }
-              }}
-              className="inline-flex items-center gap-1 hover:text-indigo-600 transition-colors"
-            >
-              <ShieldCheck size={13} className="text-indigo-500" />
-              <span>سياسة الخصوصية العامة</span>
-            </a>
-            <span className="text-slate-300">•</span>
-            <a
-              href="?page=terms"
-              onClick={(e) => {
-                if (onOpenTerms) {
-                  e.preventDefault();
-                  onOpenTerms();
-                }
-              }}
-              className="inline-flex items-center gap-1 hover:text-indigo-600 transition-colors"
-            >
-              <Scale size={13} className="text-indigo-500" />
-              <span>شروط الخدمة العامة</span>
-            </a>
-          </div>
         </div>
 
       </div>
